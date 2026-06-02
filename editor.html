@@ -1,0 +1,4402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VideoEdit</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0d0d;--panel:#181818;--panel2:#1f1f1f;
+  --border:#2a2a2a;--accent:#3ecf8e;
+  --text:#e2e2e2;--muted:#666;--track:#2d2d2d;
+}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  font-size:13px;height:100vh;display:flex;flex-direction:column;
+  overflow:hidden;user-select:none;
+}
+
+/* Header */
+header{
+  height:46px;background:var(--panel);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 14px;gap:10px;flex-shrink:0;
+}
+.logo{font-weight:700;font-size:15px;color:#fff;letter-spacing:-.3px}
+.logo span{color:var(--accent)}
+.spacer{flex:1}
+.btn{
+  padding:5px 13px;border-radius:6px;border:none;cursor:pointer;
+  font-size:12px;font-weight:500;transition:opacity .12s;
+}
+.btn:hover{opacity:.82}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn-ghost{background:transparent;border:1px solid #3a3a3a;color:var(--text)}
+.btn-accent{background:var(--accent);color:#0a2019}
+.btn-sm{
+  padding:4px 9px;border-radius:5px;border:none;cursor:pointer;
+  font-size:11px;font-weight:500;transition:opacity .12s;
+}
+.btn-sm:hover{opacity:.82}
+.btn-sm-accent{background:var(--accent);color:#0a2019}
+.btn-sm-ghost{background:transparent;border:1px solid #3a3a3a;color:var(--text)}
+.btn-sm-purple{background:#7c3aed;color:#fff}
+
+/* Layout */
+.main{flex:1;display:flex;overflow:hidden}
+
+/* Sidebar */
+.sidebar{
+  width:234px;background:var(--panel);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;
+}
+.tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0}
+.tab{
+  flex:1;padding:9px 0;background:none;border:none;color:var(--muted);
+  cursor:pointer;font-size:10px;font-weight:700;letter-spacing:.3px;
+  text-transform:uppercase;border-bottom:2px solid transparent;transition:all .15s;
+}
+.tab.on{color:var(--accent);border-bottom-color:var(--accent)}
+
+.panel{display:none;padding:12px;overflow-y:auto;flex:1}
+.panel.on{display:block}
+
+.sec-head{
+  font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;
+  color:var(--muted);margin:14px 0 9px;border-bottom:1px solid var(--border);
+  padding-bottom:5px;display:flex;align-items:center;gap:6px;
+}
+.sec-head:first-child{margin-top:0}
+.badge{
+  font-size:9px;font-weight:700;background:#7c3aed;color:#fff;
+  padding:1px 5px;border-radius:3px;letter-spacing:.3px;text-transform:none;
+}
+
+/* Sliders */
+.ctrl{margin-bottom:11px}
+.ctrl-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+.ctrl-name{color:#aaa;font-size:11px}
+.ctrl-val{font-size:11px;font-variant-numeric:tabular-nums;color:var(--text);min-width:28px;text-align:right}
+input[type=range]{
+  width:100%;height:3px;-webkit-appearance:none;
+  background:var(--track);border-radius:2px;outline:none;cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:13px;height:13px;border-radius:50%;
+  background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.6);cursor:pointer;
+}
+
+/* Enhance section */
+.enhance-row{display:flex;gap:7px;margin-bottom:10px}
+.ai-collapsed{display:none}
+.ai-collapsed.open{display:block}
+.ai-box{
+  background:var(--panel2);border:1px solid var(--border);
+  border-radius:8px;padding:10px;margin-bottom:10px;
+}
+.ai-box label{display:block;font-size:10px;color:var(--muted);margin-bottom:4px;margin-top:8px}
+.ai-box label:first-child{margin-top:0}
+.ai-box input,.ai-box select{
+  width:100%;background:#111;border:1px solid var(--border);color:var(--text);
+  padding:5px 7px;border-radius:5px;font-size:11px;outline:none;
+}
+.ai-box input:focus,.ai-box select:focus{border-color:var(--accent)}
+.ai-box .ai-note{font-size:10px;color:var(--muted);margin-top:8px;line-height:1.5}
+
+/* ── Draw tools ───────────────────────────────── */
+.tool-row{display:flex;gap:5px;margin-bottom:10px}
+.tool-btn{
+  flex:1;padding:8px 4px;border-radius:7px;
+  background:var(--panel2);border:1.5px solid var(--border);
+  color:var(--text);cursor:pointer;font-size:10px;font-weight:700;
+  text-align:center;letter-spacing:.2px;transition:all .12s;
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+}
+.tool-btn:hover{border-color:#555}
+.tool-btn.on{background:var(--accent);border-color:var(--accent);color:#0a2019}
+.tool-btn .tool-icon{font-size:15px}
+
+.color-palette{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.cswatch{
+  width:26px;height:26px;border-radius:50%;cursor:pointer;
+  border:2.5px solid transparent;transition:border-color .12s, transform .1s;
+  flex-shrink:0;
+}
+.cswatch:hover{transform:scale(1.12)}
+.cswatch.on{border-color:#fff!important}
+
+.draw-actions{display:flex;gap:6px;margin-bottom:10px}
+
+.lasso-box{
+  background:var(--panel2);border:1px solid var(--border);
+  border-radius:8px;padding:10px;
+}
+.lasso-box p{font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.5}
+.lasso-input{
+  width:100%;background:#111;border:1px solid var(--border);color:#555;
+  padding:6px 8px;border-radius:5px;font-size:11px;outline:none;
+  font-style:italic;
+}
+.lasso-note{font-size:10px;color:var(--muted);margin-top:7px;line-height:1.5}
+
+/* Presets */
+.preset-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:10px}
+.preset-card{
+  position:relative;height:62px;border-radius:8px;
+  border:1.5px solid transparent;cursor:pointer;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  transition:border-color .12s, transform .1s;background:#222;
+}
+.preset-card:hover{transform:scale(1.02)}
+.preset-card.on{border-color:var(--accent)}
+.preset-card .pc-bg{position:absolute;inset:0;opacity:.65;transition:opacity .2s}
+.preset-card:hover .pc-bg{opacity:.85}
+.preset-card .pc-name{
+  position:relative;font-size:11px;font-weight:600;
+  color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.7);letter-spacing:.2px;
+}
+.preset-none{
+  margin-bottom:7px;width:100%;padding:7px;border-radius:7px;
+  background:var(--panel2);border:1.5px solid var(--border);
+  color:var(--muted);cursor:pointer;font-size:11px;font-weight:500;
+  transition:all .12s;
+}
+.preset-none:hover{color:var(--text);border-color:#555}
+.preset-none.on{border-color:var(--accent);color:var(--accent)}
+
+/* Crop */
+.ratio-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:12px}
+.ratio-btn{
+  padding:6px 2px;border-radius:5px;background:var(--panel2);
+  border:1px solid var(--border);color:var(--text);cursor:pointer;
+  font-size:10.5px;font-weight:500;text-align:center;transition:all .12s;
+}
+.ratio-btn.on{background:var(--accent);border-color:var(--accent);color:#0a2019}
+.crop-dims{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px}
+.dim-label{font-size:10px;color:var(--muted);margin-bottom:3px}
+.dim-input{
+  width:100%;background:var(--panel2);border:1px solid var(--border);
+  color:var(--text);padding:5px 7px;border-radius:5px;font-size:12px;outline:none;
+}
+.dim-input:focus{border-color:var(--accent)}
+.tip{
+  font-size:11px;color:var(--muted);line-height:1.6;
+  background:var(--panel2);padding:8px 10px;border-radius:6px;margin-top:10px;
+}
+
+/* Preview area */
+.center{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.preview{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  background:#000;position:relative;overflow:hidden;
+}
+.drop-zone{
+  display:flex;flex-direction:column;align-items:center;
+  gap:10px;cursor:pointer;color:var(--muted);text-align:center;
+}
+.drop-icon{width:56px;height:56px;opacity:.35}
+.drop-zone h3{font-size:15px;color:var(--text);font-weight:500}
+.preview.drag-over::after{
+  content:'Drop to open';position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;font-weight:600;color:#fff;
+  background:rgba(62,207,142,.15);border:2px dashed var(--accent);
+  pointer-events:none;
+}
+/* vwrap: absolutely positioned so transform-origin:0 0 zoom math works correctly */
+.vwrap{position:absolute;top:0;left:0;transform-origin:0 0;display:none}
+#vid{display:block}
+.vignette{
+  position:absolute;inset:0;pointer-events:none;opacity:0;z-index:1;
+  background:radial-gradient(ellipse at center,transparent 50%,rgba(0,0,0,.85) 100%);
+  transition:opacity .2s;
+}
+
+/* FX (overlay) canvas — below draw canvas */
+#fxCanvas{
+  position:absolute;inset:0;z-index:1;pointer-events:none;
+  mix-blend-mode:normal;
+}
+
+/* Lasso selection canvas — above fxCanvas, below drawCanvas */
+#lassoCanvas{
+  position:absolute;inset:0;z-index:1;pointer-events:none;
+}
+
+/* Lasso panel in sidebar */
+.lasso-pill{
+  display:inline-block;background:#0e1f17;border:1px solid var(--accent);
+  color:var(--accent);padding:2px 7px;border-radius:3px;font-size:10px;
+  font-family:monospace;margin-left:auto;
+}
+.sel-list{display:flex;flex-direction:column;gap:5px;margin-top:6px}
+.sel-row{
+  display:flex;align-items:center;gap:6px;
+  background:#111;border:1px solid var(--border);
+  border-radius:5px;padding:4px 7px;font-size:11px;
+}
+.sel-row:hover{border-color:#3a3a3a}
+.sel-name{
+  flex:1;background:none;border:none;color:var(--text);
+  font-size:11px;outline:none;padding:2px 4px;border-radius:3px;
+  min-width:0;font-family:inherit;
+}
+.sel-name:focus{background:var(--panel2)}
+.sel-meta{color:var(--muted);font-size:10px;font-family:monospace;flex-shrink:0}
+.sel-act{
+  background:transparent;border:none;color:var(--accent);
+  cursor:pointer;font-size:11px;padding:2px 5px;border-radius:3px;
+}
+.sel-act:hover{background:#0e1f17}
+.sel-del{color:#e07050}
+.sel-del:hover{background:#2a1a1a}
+.sel-empty{font-size:10px;color:var(--muted);font-style:italic;text-align:center;padding:6px 0}
+
+/* Grid overlay — CSS-only, above fxCanvas, below drawCanvas */
+.grid-ol{position:absolute;inset:0;pointer-events:none;z-index:1;display:none}
+.grid-ol.on{display:block}
+.grid-ol.thirds::before,.grid-ol.thirds::after{
+  content:'';position:absolute;background:rgba(255,255,255,.45);
+  box-shadow:0 0 1px rgba(0,0,0,.6);
+}
+.grid-ol.thirds::before{left:33.333%;width:1px;top:0;height:100%;
+  box-shadow:33.333% 0 0 rgba(255,255,255,.45),33.333% 0 0 1px rgba(0,0,0,.6);}
+.grid-ol.thirds::after{top:33.333%;height:1px;left:0;width:100%;
+  box-shadow:0 33.333% 0 rgba(255,255,255,.45);}
+.grid-cross{position:absolute;inset:0;pointer-events:none;z-index:1;display:none}
+.grid-cross.on{display:block}
+.grid-cross::before,.grid-cross::after{
+  content:'';position:absolute;background:rgba(255,255,255,.5);
+  box-shadow:0 0 1px rgba(0,0,0,.7);
+}
+.grid-cross::before{left:50%;width:1px;top:0;height:100%}
+.grid-cross::after{top:50%;height:1px;left:0;width:100%}
+.safe-ol{position:absolute;inset:0;pointer-events:none;z-index:1;display:none}
+.safe-ol.on{display:block}
+.safe-ol::before{
+  content:'';position:absolute;left:5%;top:5%;right:5%;bottom:5%;
+  border:1px solid rgba(255,255,0,.55);
+}
+.safe-ol::after{
+  content:'';position:absolute;left:10%;top:10%;right:10%;bottom:10%;
+  border:1px solid rgba(0,255,255,.55);
+}
+
+/* Draw canvas — always visible, pointer-events toggled */
+#drawCanvas{
+  position:absolute;inset:0;z-index:2;
+  pointer-events:none;
+  cursor:crosshair;
+}
+#drawCanvas.draw-active{pointer-events:all}
+
+/* Crop overlay — above draw canvas when crop tab active */
+.crop-ol{position:absolute;inset:0;display:none;pointer-events:none;z-index:3}
+.crop-ol.on{display:block;pointer-events:all}
+.cbox{
+  position:absolute;cursor:move;
+  box-shadow:0 0 0 9999px rgba(0,0,0,.55);border:1.5px solid #fff;
+}
+.cgrid{position:absolute;inset:0;pointer-events:none}
+.cgrid::before,.cgrid::after{content:'';position:absolute;background:rgba(255,255,255,.22)}
+.cgrid::before{left:33.33%;width:1px;top:0;height:100%;box-shadow:33.33% 0 0 rgba(255,255,255,.22)}
+.cgrid::after{top:33.33%;height:1px;left:0;width:100%;box-shadow:0 33.33% 0 rgba(255,255,255,.22)}
+.ch{
+  position:absolute;width:11px;height:11px;background:#fff;
+  border-radius:2px;box-shadow:0 1px 4px rgba(0,0,0,.5);pointer-events:all;
+}
+.ch[data-h=nw]{top:-5.5px;left:-5.5px;cursor:nw-resize}
+.ch[data-h=ne]{top:-5.5px;right:-5.5px;cursor:ne-resize}
+.ch[data-h=sw]{bottom:-5.5px;left:-5.5px;cursor:sw-resize}
+.ch[data-h=se]{bottom:-5.5px;right:-5.5px;cursor:se-resize}
+.ch[data-h=n]{top:-5.5px;left:50%;transform:translateX(-50%);cursor:n-resize}
+.ch[data-h=s]{bottom:-5.5px;left:50%;transform:translateX(-50%);cursor:s-resize}
+.ch[data-h=e]{right:-5.5px;top:50%;transform:translateY(-50%);cursor:e-resize}
+.ch[data-h=w]{left:-5.5px;top:50%;transform:translateY(-50%);cursor:w-resize}
+
+/* Controls */
+.cbar{background:var(--panel);border-top:1px solid var(--border);padding:8px 14px 10px;flex-shrink:0}
+.tline{
+  position:relative;height:4px;background:var(--track);
+  border-radius:2px;margin-bottom:9px;cursor:pointer;
+}
+.tline-prog{height:100%;background:var(--accent);border-radius:2px;pointer-events:none;width:0%}
+.tline-thumb{
+  position:absolute;top:50%;left:0%;transform:translate(-50%,-50%);
+  width:11px;height:11px;background:#fff;border-radius:50%;
+  box-shadow:0 1px 4px rgba(0,0,0,.5);cursor:pointer;
+}
+.prow{display:flex;align-items:center;gap:10px}
+.play-btn{
+  width:30px;height:30px;border-radius:50%;background:#fff;border:none;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:opacity .12s;
+}
+.play-btn:hover{opacity:.85}
+.play-btn svg{fill:#111;display:block}
+.play-btn .icon-pause{display:none}
+.play-btn.playing .icon-play{display:none}
+.play-btn.playing .icon-pause{display:block}
+.tdisplay{font-variant-numeric:tabular-nums;font-size:12px;color:var(--muted)}
+.speed-wrap{
+  display:flex;align-items:center;gap:2px;
+  background:var(--panel2);border:1px solid var(--border);
+  border-radius:5px;padding:2px 6px;cursor:text;
+}
+.speed-wrap:focus-within{border-color:var(--accent)}
+.speed-wrap input{
+  background:none;border:none;color:var(--text);
+  font-size:11px;width:36px;outline:none;text-align:right;
+  -moz-appearance:textfield;
+}
+.speed-wrap input::-webkit-inner-spin-button,
+.speed-wrap input::-webkit-outer-spin-button{-webkit-appearance:none}
+.speed-wrap span{font-size:11px;color:var(--muted)}
+.vol{display:flex;align-items:center;gap:6px;margin-left:auto}
+.vol svg{fill:var(--muted);flex-shrink:0}
+#volR{width:70px}
+
+/* Zoom HUD — Figma-style corner widget */
+.zoom-hud{
+  position:absolute;bottom:12px;left:12px;z-index:10;
+  display:none;align-items:center;gap:2px;
+  background:rgba(20,20,20,.82);border:1px solid rgba(255,255,255,.1);
+  border-radius:7px;padding:3px 6px;
+  backdrop-filter:blur(6px);
+}
+.zoom-hud.visible{display:flex}
+.zhbtn{
+  background:none;border:none;color:#ccc;cursor:pointer;
+  font-size:14px;line-height:1;padding:1px 4px;border-radius:3px;
+  transition:background .1s;
+}
+.zhbtn:hover{background:rgba(255,255,255,.12);color:#fff}
+#zoomDisplay{
+  font-size:11px;font-variant-numeric:tabular-nums;
+  color:#e0e0e0;min-width:40px;text-align:center;cursor:pointer;
+}
+#zoomDisplay:hover{color:#fff}
+/* Panning cursor states */
+.preview.pan-ready{cursor:grab!important}
+.preview.panning{cursor:grabbing!important}
+
+/* ── Frame step buttons ── */
+.step-btn{
+  width:26px;height:26px;background:var(--panel2);
+  border:1px solid var(--border);border-radius:5px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  color:var(--text);font-size:12px;transition:background .1s;flex-shrink:0;
+}
+.step-btn:hover{background:#333}
+.step-btn:disabled{opacity:.35;cursor:not-allowed}
+.frame-disp{
+  font-size:11px;font-variant-numeric:tabular-nums;
+  color:var(--muted);font-family:monospace;
+}
+
+/* ── Loupe ── */
+.loupe-wrap{
+  position:absolute;width:160px;height:160px;
+  border-radius:50%;overflow:hidden;
+  display:none;z-index:20;pointer-events:none;
+  box-shadow:0 2px 16px rgba(0,0,0,.6), 0 0 0 1.5px rgba(255,255,255,.22);
+}
+#loupeCanvas{display:block;width:160px;height:160px}
+
+/* ── Color tooltip ── */
+.color-tip{
+  position:absolute;z-index:21;pointer-events:none;display:none;
+  background:rgba(12,12,12,.88);border:1px solid rgba(255,255,255,.15);
+  border-radius:7px;padding:5px 9px;
+  backdrop-filter:blur(6px);display:none;align-items:center;gap:7px;
+}
+.ctip-swatch{
+  width:16px;height:16px;border-radius:3px;
+  border:1px solid rgba(255,255,255,.25);flex-shrink:0;
+}
+.ctip-vals{font-size:11px;font-family:monospace;color:#e0e0e0;line-height:1.5}
+.ctip-vals small{color:var(--muted);font-size:10px}
+
+/* ── Inspect panel ── */
+.insp-row{display:flex;align-items:center;gap:7px;margin-bottom:8px}
+.color-readout{
+  display:flex;align-items:center;gap:8px;
+  background:#111;border:1px solid var(--border);
+  border-radius:5px;padding:7px 9px;margin-bottom:7px;
+}
+.cr-swatch{width:22px;height:22px;border-radius:4px;border:1px solid rgba(255,255,255,.2);flex-shrink:0}
+.cr-vals{font-size:11px;font-family:monospace;color:var(--text);line-height:1.6;font-size:11px}
+.cr-vals small{color:var(--muted);font-size:10px;display:block}
+.color-hist{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}
+.chip{
+  width:20px;height:20px;border-radius:3px;cursor:pointer;
+  border:1.5px solid transparent;title:'';
+}
+.chip:hover{border-color:#fff}
+.blur-result{
+  font-size:11px;color:var(--muted);line-height:1.6;
+  background:#111;border-radius:5px;padding:7px 9px;margin-top:6px;
+}
+.insp-note{font-size:10px;color:var(--muted);line-height:1.5;margin-top:5px}
+
+/* ── Bookmarks ── */
+.tline-marks{position:absolute;inset:0;pointer-events:none}
+.pin-mark{
+  position:absolute;top:-3px;width:2px;height:10px;
+  background:var(--accent);border-radius:1px;
+  transform:translateX(-50%);pointer-events:auto;cursor:pointer;
+  box-shadow:0 0 0 1px rgba(0,0,0,.5);
+}
+.pin-mark::before{
+  content:'';position:absolute;left:50%;top:-3px;
+  width:7px;height:7px;background:var(--accent);
+  transform:translateX(-50%) rotate(45deg);border-radius:1px;
+}
+.pin-mark:hover{height:13px;top:-5px}
+.bm-list{display:flex;flex-direction:column;gap:5px;margin-top:7px}
+.bm-row{
+  display:flex;align-items:center;gap:7px;
+  background:#111;border:1px solid var(--border);
+  border-radius:5px;padding:5px 7px;font-size:11px;
+}
+.bm-row:hover{border-color:#3a3a3a}
+.bm-time{
+  font-family:monospace;color:var(--accent);
+  cursor:pointer;flex-shrink:0;font-size:10px;
+}
+.bm-time:hover{text-decoration:underline}
+.bm-label{
+  flex:1;background:none;border:none;color:var(--text);
+  font-size:11px;outline:none;padding:2px 4px;border-radius:3px;
+  min-width:0;font-family:inherit;
+}
+.bm-label:focus{background:var(--panel2)}
+.bm-label::placeholder{color:var(--muted);font-style:italic}
+.bm-del{
+  background:none;border:none;color:var(--muted);
+  cursor:pointer;font-size:14px;line-height:1;padding:2px 4px;
+  flex-shrink:0;border-radius:3px;
+}
+.bm-del:hover{color:#e07050;background:#2a1a1a}
+.bm-empty{font-size:10px;color:var(--muted);font-style:italic;margin-top:5px}
+
+/* ── Overlay mode toggles ── */
+.mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:7px}
+.mode-btn{
+  background:var(--panel2);border:1px solid var(--border);
+  color:var(--text);padding:6px 7px;border-radius:5px;
+  font-size:11px;cursor:pointer;transition:all .12s;
+}
+.mode-btn:hover{border-color:#3a3a3a}
+.mode-btn.on{background:var(--accent);color:#0a2019;border-color:var(--accent)}
+.mode-btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* ── Metadata panel ── */
+.meta-grid{
+  display:grid;grid-template-columns:auto 1fr;gap:4px 10px;
+  background:#111;border:1px solid var(--border);
+  border-radius:5px;padding:8px 10px;font-size:11px;
+}
+.meta-k{color:var(--muted)}
+.meta-v{color:var(--text);font-family:monospace;font-size:10.5px;text-align:right;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+/* ── Histogram ── */
+.hist-wrap{
+  background:#0a0a0a;border:1px solid var(--border);
+  border-radius:5px;padding:6px;position:relative;
+}
+#histCanvas{display:block;width:100%;height:60px}
+.hist-legend{
+  display:flex;gap:8px;font-size:9px;color:var(--muted);
+  margin-top:4px;justify-content:center;font-family:monospace;
+}
+.hist-legend span b{font-weight:600;margin-right:2px}
+
+/* ── Motion Analyzer ── */
+.mot-wrap{
+  background:#0a0a0a;border:1px solid var(--border);
+  border-radius:5px;padding:8px;margin-top:6px;
+}
+#motCanvas{display:block;width:100%;height:70px;background:#000;border-radius:3px}
+.mot-legend{
+  display:flex;gap:10px;font-size:10px;color:var(--muted);
+  margin-top:6px;justify-content:space-between;font-family:monospace;align-items:center;flex-wrap:wrap;
+}
+.mot-stat{display:flex;align-items:baseline;gap:3px}
+.mot-stat b{color:var(--text);font-size:10.5px}
+.mot-stat.flag{color:#e07050}
+.mot-stat.flag b{color:#e07050}
+.mot-stat.pulse{color:var(--accent)}
+.mot-stat.pulse b{color:var(--accent);font-size:11px}
+.mot-progress{
+  width:100%;height:4px;background:#1a1a1a;border-radius:2px;
+  overflow:hidden;margin-top:6px;display:none;
+}
+.mot-progress.on{display:block}
+.mot-progress-bar{height:100%;background:var(--accent);width:0%;transition:width .15s}
+.mot-empty{font-size:10px;color:var(--muted);font-style:italic;text-align:center;padding:20px 0}
+
+/* ── SMPTE timecode in cbar ── */
+.tc-disp{
+  font-variant-numeric:tabular-nums;font-size:11px;
+  color:var(--accent);font-family:monospace;
+  background:#0a0a0a;border:1px solid var(--border);
+  padding:3px 7px;border-radius:4px;
+  display:none;
+}
+.tc-disp.on{display:inline-block}
+
+/* Toast */
+.toast{
+  position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+  background:#1a2a22;border:1px solid var(--accent);color:var(--accent);
+  padding:8px 16px;border-radius:8px;font-size:12px;
+  opacity:0;transition:opacity .3s;pointer-events:none;z-index:100;white-space:nowrap;
+}
+.toast.show{opacity:1}
+
+/* Compare modal */
+.modal-bg{
+  position:fixed;inset:0;background:rgba(0,0,0,.82);
+  display:none;align-items:center;justify-content:center;z-index:200;
+}
+.modal-bg.open{display:flex}
+.modal{
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:12px;padding:20px;max-width:90vw;max-height:90vh;
+  display:flex;flex-direction:column;gap:12px;
+}
+.modal h3{font-size:14px;font-weight:600;color:#fff}
+.compare-imgs{display:flex;gap:12px;overflow:auto}
+.compare-side{display:flex;flex-direction:column;gap:6px;align-items:center}
+.compare-side span{font-size:11px;color:var(--muted)}
+.compare-side img{
+  max-width:380px;max-height:60vh;border-radius:6px;
+  border:1px solid var(--border);display:block;object-fit:contain;
+}
+.modal-footer{display:flex;justify-content:flex-end;gap:8px}
+
+/* ── Help modal ── */
+.help-btn{
+  width:28px;padding:0;font-size:14px;font-weight:600;
+  display:flex;align-items:center;justify-content:center;
+}
+.help-modal{
+  width:min(820px, 92vw); max-height:86vh;
+  display:flex;flex-direction:column;gap:0;padding:0;overflow:hidden;
+}
+.help-head{
+  display:flex;align-items:center;gap:10px;
+  padding:14px 18px;border-bottom:1px solid var(--border);
+}
+.help-head h3{margin:0;flex-shrink:0}
+.help-search{
+  flex:1;background:#0a0a0a;border:1px solid var(--border);
+  color:var(--text);padding:6px 10px;border-radius:5px;
+  font-size:12px;outline:none;
+}
+.help-search:focus{border-color:var(--accent)}
+.help-tabs{
+  display:flex;gap:1px;padding:8px 18px 0;
+  border-bottom:1px solid var(--border);background:#101010;flex-shrink:0;
+  overflow-x:auto;
+}
+.help-tab{
+  background:none;border:none;color:var(--muted);
+  padding:8px 12px;cursor:pointer;font-size:11px;
+  border-bottom:2px solid transparent;white-space:nowrap;
+}
+.help-tab.on{color:var(--accent);border-bottom-color:var(--accent)}
+.help-body{
+  flex:1;overflow-y:auto;padding:14px 18px;
+}
+.help-card{
+  background:#121212;border:1px solid var(--border);
+  border-radius:7px;padding:12px 14px;margin-bottom:10px;
+}
+.help-card h4{
+  margin:0 0 6px;font-size:13px;color:#fff;
+  display:flex;align-items:center;gap:8px;
+}
+.help-card .kbd{
+  display:inline-block;background:#222;border:1px solid #3a3a3a;
+  border-bottom-width:2px;color:var(--accent);
+  padding:1px 6px;border-radius:4px;font-family:monospace;
+  font-size:10px;font-weight:600;
+}
+.help-card p{margin:0 0 8px;font-size:12px;color:var(--text);line-height:1.55}
+.help-card ul{margin:6px 0 0 16px;padding:0;font-size:11.5px;color:var(--text);line-height:1.6}
+.help-card ul li::marker{color:var(--accent)}
+.help-card .tip{
+  margin-top:8px;background:#0e1f17;border-left:3px solid var(--accent);
+  padding:7px 10px;border-radius:0 5px 5px 0;font-size:11px;color:#bde8c8;
+}
+.help-card .tip::before{content:'★ ';color:var(--accent);font-weight:600}
+.help-card .warn{
+  margin-top:8px;background:#231414;border-left:3px solid #e07050;
+  padding:7px 10px;border-radius:0 5px 5px 0;font-size:11px;color:#f1c7b6;
+}
+.help-card.hidden{display:none}
+.help-empty{text-align:center;color:var(--muted);font-size:12px;padding:30px 0}
+.help-foot{
+  border-top:1px solid var(--border);padding:8px 18px;
+  font-size:10px;color:var(--muted);display:flex;justify-content:space-between;
+}
+
+/* Try-it interactivity */
+.try-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.try-btn{
+  background:transparent;border:1px solid var(--accent);color:var(--accent);
+  padding:5px 11px;border-radius:5px;font-size:11px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:5px;transition:all .15s;
+}
+.try-btn:hover{background:var(--accent);color:#0a2019}
+.try-btn:disabled{opacity:.4;cursor:not-allowed;border-color:#3a3a3a;color:var(--muted)}
+.try-btn:disabled:hover{background:transparent;color:var(--muted)}
+.try-btn::before{content:'▸';font-size:10px}
+.try-tour{
+  background:var(--accent);color:#0a2019;border-color:var(--accent);
+}
+.try-tour:hover{filter:brightness(1.1)}
+
+/* Spotlight ring overlay */
+.spot-ring{
+  position:fixed;z-index:300;pointer-events:none;
+  border-radius:8px;
+  box-shadow:0 0 0 4px var(--accent), 0 0 0 9999px rgba(0,0,0,.55);
+  transition:all .25s ease;
+  animation:spot-pulse 1.4s ease-in-out infinite;
+}
+@keyframes spot-pulse{
+  0%,100%{box-shadow:0 0 0 4px var(--accent), 0 0 0 9999px rgba(0,0,0,.55)}
+  50%    {box-shadow:0 0 0 8px rgba(62,207,142,.5), 0 0 0 9999px rgba(0,0,0,.55)}
+}
+.spot-label{
+  position:fixed;z-index:301;background:var(--accent);color:#0a2019;
+  padding:5px 11px;border-radius:5px;font-size:11px;font-weight:600;
+  pointer-events:auto;display:flex;align-items:center;gap:8px;
+  box-shadow:0 4px 12px rgba(0,0,0,.5);
+}
+.spot-label button{
+  background:rgba(10,32,25,.2);border:none;color:#0a2019;
+  width:18px;height:18px;border-radius:3px;cursor:pointer;
+  font-size:11px;font-weight:700;padding:0;line-height:1;
+}
+.spot-label button:hover{background:rgba(10,32,25,.4)}
+
+/* Key-tutor */
+.kt-display{
+  background:#0a0a0a;border:1px solid var(--border);
+  border-radius:5px;padding:10px 12px;margin-top:8px;
+  font-size:12px;color:var(--muted);min-height:42px;
+  display:flex;align-items:center;gap:10px;
+}
+.kt-display .kt-key{
+  background:#222;border:1px solid #3a3a3a;border-bottom-width:2px;
+  color:var(--accent);padding:3px 9px;border-radius:5px;
+  font-family:monospace;font-size:12px;font-weight:600;
+}
+.kt-display .kt-meaning{flex:1;color:var(--text)}
+.kt-display.empty{color:var(--muted);font-style:italic}
+
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#383838;border-radius:3px}
+
+#xcanvas{display:none}
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">Video<span>Edit</span></span>
+  <div class="spacer"></div>
+  <button class="btn btn-ghost help-btn" id="helpBtn" title="How To · Tips  (?)">?</button>
+  <button class="btn btn-ghost" id="openBtn">Open File</button>
+  <button class="btn btn-accent" id="exportBtn" disabled>Export</button>
+</header>
+
+<div class="main">
+  <div class="sidebar">
+    <div class="tabs">
+      <button class="tab on" data-t="adjust">Adjust</button>
+      <button class="tab" data-t="presets">Presets</button>
+      <button class="tab" data-t="draw">Draw</button>
+      <button class="tab" data-t="inspect">Inspect</button>
+      <button class="tab" data-t="crop">Crop</button>
+    </div>
+
+    <!-- ── Adjust ── -->
+    <div class="panel on" id="p-adjust">
+      <div class="sec-head">Light</div>
+      <div class="ctrl">
+        <div class="ctrl-row"><span class="ctrl-name">Exposure</span><span class="ctrl-val" id="v-exposure">0</span></div>
+        <input type="range" id="s-exposure" min="-100" max="100" value="0">
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-row"><span class="ctrl-name">Brightness</span><span class="ctrl-val" id="v-brightness">0</span></div>
+        <input type="range" id="s-brightness" min="-100" max="100" value="0">
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-row"><span class="ctrl-name">Contrast</span><span class="ctrl-val" id="v-contrast">0</span></div>
+        <input type="range" id="s-contrast" min="-100" max="100" value="0">
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-row"><span class="ctrl-name">Highlights</span><span class="ctrl-val" id="v-highlights">0</span></div>
+        <input type="range" id="s-highlights" min="-100" max="100" value="0">
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-row"><span class="ctrl-name">Shadows</span><span class="ctrl-val" id="v-shadows">0</span></div>
+        <input type="range" id="s-shadows" min="-100" max="100" value="0">
+      </div>
+      <div class="sec-head">Color</div>
+      <div class="ctrl">
+        <div class="ctrl-row"><span class="ctrl-name">Saturation</span><span class="ctrl-val" id="v-saturation">0</span></div>
+        <input type="range" id="s-saturation" min="-100" max="100" value="0">
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-row"><span class="ctrl-name">Temperature</span><span class="ctrl-val" id="v-temperature">0</span></div>
+        <input type="range" id="s-temperature" min="-100" max="100" value="0">
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-row"><span class="ctrl-name">Tint</span><span class="ctrl-val" id="v-tint">0</span></div>
+        <input type="range" id="s-tint" min="-100" max="100" value="0">
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-row"><span class="ctrl-name">Hue</span><span class="ctrl-val" id="v-hue">0</span></div>
+        <input type="range" id="s-hue" min="-180" max="180" value="0">
+      </div>
+      <div class="sec-head">Effects</div>
+      <div class="ctrl">
+        <div class="ctrl-row"><span class="ctrl-name">Vignette</span><span class="ctrl-val" id="v-vignette">0</span></div>
+        <input type="range" id="s-vignette" min="0" max="100" value="0">
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-row"><span class="ctrl-name">Blur</span><span class="ctrl-val" id="v-blur">0</span></div>
+        <input type="range" id="s-blur" min="0" max="100" value="0">
+      </div>
+      <div class="sec-head">Enhance</div>
+      <div class="enhance-row">
+        <button class="btn-sm btn-sm-accent" id="autoEnhBtn" style="flex:1" disabled>Auto Enhance</button>
+        <button class="btn-sm btn-sm-purple" id="aiEnhBtn" style="flex:1" disabled>AI (HF)</button>
+      </div>
+      <div class="ai-collapsed" id="aiBox">
+        <div class="ai-box">
+          <label>Hugging Face Token</label>
+          <input type="password" id="hfToken" placeholder="hf_...">
+          <label>Model</label>
+          <select id="hfModel">
+            <option value="caidas/swin2SR-realworld-sr-x4-64">SwinSR — Real-World SR ×4</option>
+            <option value="caidas/swin2SR-classical-sr-x4-64">SwinSR — Classical SR ×4</option>
+            <option value="eugenesiow/srcnn-scale2">SRCNN — Scale ×2</option>
+          </select>
+          <div style="margin-top:10px;display:flex;gap:7px">
+            <button class="btn-sm btn-sm-purple" id="runHFBtn" style="flex:1">Run on Frame</button>
+            <button class="btn-sm btn-sm-ghost" id="closeAIBtn" style="flex:1">Close</button>
+          </div>
+          <div class="ai-note">Sends the current frame to HF Inference API. Token stays local — never sent anywhere except HF.</div>
+        </div>
+      </div>
+      <button class="btn btn-ghost" id="resetBtn" style="width:100%;margin-top:4px">Reset All</button>
+    </div>
+
+    <!-- ── Presets ── -->
+    <div class="panel" id="p-presets">
+      <button class="preset-none on" id="presetNone">None (manual)</button>
+      <div class="preset-grid" id="presetGrid"></div>
+    </div>
+
+    <!-- ── Draw ── -->
+    <div class="panel" id="p-draw">
+      <div class="sec-head" style="margin-top:0">Tool</div>
+      <div class="tool-row">
+        <button class="tool-btn on" data-tool="highlighter">
+          <span class="tool-icon">🖊</span>Highlight
+        </button>
+        <button class="tool-btn" data-tool="pencil">
+          <span class="tool-icon">✏️</span>Pencil
+        </button>
+        <button class="tool-btn" data-tool="eraser">
+          <span class="tool-icon">◻</span>Eraser
+        </button>
+        <button class="tool-btn" data-tool="lasso" title="Lasso: click to add vertices · click near start to close · Enter closes · Esc cancels · drag for freehand">
+          <span class="tool-icon">⊜</span>Lasso
+        </button>
+        <button class="tool-btn" data-tool="wand" title="Magic Wand: click a pixel to select a contiguous color region · Shift = wider tolerance · Alt = tighter">
+          <span class="tool-icon">✦</span>Wand
+        </button>
+      </div>
+
+      <div class="sec-head">Color</div>
+      <div class="color-palette" id="colorPalette"></div>
+
+      <div class="ctrl">
+        <div class="ctrl-row"><span class="ctrl-name">Size</span><span class="ctrl-val" id="v-drawSize">22</span></div>
+        <input type="range" id="s-drawSize" min="2" max="80" value="22">
+      </div>
+      <div class="ctrl" id="opacityCtrl">
+        <div class="ctrl-row"><span class="ctrl-name">Opacity</span><span class="ctrl-val" id="v-drawOpacity">40</span></div>
+        <input type="range" id="s-drawOpacity" min="5" max="100" value="40">
+      </div>
+
+      <div class="sec-head">Object Lock</div>
+      <button class="btn btn-ghost" id="trackToggle" style="width:100%;margin-bottom:7px" disabled>Track: Off</button>
+      <div class="insp-note" style="margin-bottom:10px">Enable, then draw around an object — the annotation locks onto it and follows across every frame.</div>
+
+      <div class="sec-head">Actions</div>
+      <div class="draw-actions">
+        <button class="btn btn-ghost" id="undoBtn" style="flex:1" disabled>Undo</button>
+        <button class="btn btn-ghost" id="clearDrawBtn" style="flex:1" disabled>Clear</button>
+      </div>
+
+      <div class="sec-head">
+        Selection
+        <span class="lasso-pill" id="lassoPill" style="display:none">— pts</span>
+      </div>
+      <div class="lasso-box">
+        <p>
+          <b>Lasso</b>: click each vertex, click the start to close (Enter also closes, Esc cancels). Or drag for freehand.<br>
+          <b>Wand</b>: click a pixel to flood-fill a contiguous color region (Shift = wider, Alt = tighter).
+        </p>
+        <div class="draw-actions">
+          <button class="btn btn-ghost" id="lassoClear" style="flex:1" disabled>Deselect</button>
+          <button class="btn btn-ghost" id="lassoBookmark" style="flex:1" disabled>Pin as Bookmark</button>
+        </div>
+        <div class="draw-actions" style="margin-top:6px">
+          <button class="btn btn-ghost" id="lassoSave" style="flex:1" disabled>Save</button>
+          <button class="btn btn-accent" id="lassoAnalyze" style="flex:1" disabled>Analyze Selection</button>
+        </div>
+        <div class="lasso-note">Selections are stored separately from drawings. Save above to keep a region in the library; Analyze jumps to the Motion Analyzer and runs <i>inside the selection</i>.</div>
+      </div>
+
+      <div class="sec-head">Selection Library</div>
+      <div class="sel-list" id="selList"></div>
+      <div class="sel-empty" id="selEmpty">No saved selections.</div>
+    </div>
+
+    <!-- ── Inspect ── -->
+    <div class="panel" id="p-inspect">
+
+      <div class="sec-head" style="margin-top:0">Metadata</div>
+      <div class="meta-grid" id="metaGrid">
+        <span class="meta-k">Status</span><span class="meta-v" id="m-status">no video</span>
+      </div>
+
+      <div class="sec-head">Frame Step</div>
+      <div class="insp-row">
+        <button class="step-btn" id="stepBack" disabled title="← one frame  (,)">◀</button>
+        <span id="frameDisp" class="frame-disp" style="flex:1;text-align:center">F — / —</span>
+        <button class="step-btn" id="stepFwd"  disabled title="→ one frame  (.)">▶</button>
+      </div>
+      <div class="insp-note">Keys: <b style="color:var(--text)">,</b> back · <b style="color:var(--text)">.</b> forward · auto-detects fps</div>
+
+      <div class="sec-head">Loupe</div>
+      <div class="insp-row">
+        <button class="btn btn-ghost" id="loupeToggle" style="flex:1" disabled>Loupe Off</button>
+      </div>
+      <div class="ctrl" id="loupeZoomCtrl">
+        <div class="ctrl-row"><span class="ctrl-name">Magnification</span><span class="ctrl-val" id="v-loupeZoom">5</span>×</div>
+        <input type="range" id="s-loupeZoom" min="2" max="16" value="5">
+      </div>
+      <div class="insp-note">Hover over the video with loupe on. Shows pixel-level detail.</div>
+
+      <div class="sec-head">Color Picker</div>
+      <div class="color-readout" id="colorReadout">
+        <div class="cr-swatch" id="crSwatch" style="background:#333"></div>
+        <div class="cr-vals" id="crVals">
+          <span id="crHex">—</span>
+          <small id="crRGB">hover over video</small>
+        </div>
+      </div>
+      <div class="insp-note" style="margin-bottom:6px">Click video to pin a color sample.</div>
+      <div class="color-hist" id="colorHist"></div>
+
+      <div class="sec-head">Histogram</div>
+      <div class="hist-wrap">
+        <canvas id="histCanvas" width="220" height="60"></canvas>
+        <div class="hist-legend">
+          <span><b style="color:#ff5060">R</b><span id="hl-r">—</span></span>
+          <span><b style="color:#5fcf6f">G</b><span id="hl-g">—</span></span>
+          <span><b style="color:#5da0ff">B</b><span id="hl-b">—</span></span>
+          <span><b style="color:#aaa">Y</b><span id="hl-y">—</span></span>
+        </div>
+      </div>
+      <div class="insp-note">Live RGB + luminance distribution.</div>
+
+      <div class="sec-head">Overlays</div>
+      <div class="mode-grid">
+        <button class="mode-btn" data-fx="off">Off</button>
+        <button class="mode-btn" data-fx="clip">Clipping</button>
+        <button class="mode-btn" data-fx="false">False Color</button>
+        <button class="mode-btn" data-fx="diff">Frame Diff</button>
+      </div>
+      <div class="insp-note" style="margin-bottom:8px">Clipping: blown highlights red, crushed blacks blue. False Color: luminance → spectrum. Frame Diff: motion vs previous frame.</div>
+      <div class="mode-grid">
+        <button class="mode-btn" data-grid="thirds">Rule of 3rds</button>
+        <button class="mode-btn" data-grid="cross">Crosshair</button>
+        <button class="mode-btn" data-grid="safe">Safe Area</button>
+        <button class="mode-btn" data-grid="off">Grid Off</button>
+      </div>
+
+      <div class="sec-head">One-Shot Analysis</div>
+      <div class="insp-row">
+        <button class="btn btn-accent" id="edgeBtn" style="flex:1" disabled>Edges (Sobel)</button>
+        <button class="btn btn-accent" id="elaBtn" style="flex:1" disabled>ELA</button>
+      </div>
+      <div class="insp-row">
+        <button class="btn btn-ghost" id="clearFxBtn" style="flex:1" disabled>Clear Overlay</button>
+      </div>
+      <div class="insp-note">ELA flags re-saved regions (tamper detection). Edges shows luminance edges.</div>
+
+      <div class="sec-head">Motion Analyzer</div>
+      <div class="ctrl">
+        <div class="ctrl-row"><span class="ctrl-name">Samples</span><span class="ctrl-val" id="v-motSamples">200</span></div>
+        <input type="range" id="s-motSamples" min="60" max="400" step="20" value="200">
+      </div>
+      <div class="insp-row" style="margin-bottom:5px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text);cursor:pointer">
+          <input type="checkbox" id="motRestrict" style="margin:0"> Restrict to selection
+        </label>
+      </div>
+      <div class="insp-row">
+        <button class="btn btn-accent" id="motAnalyzeBtn" style="flex:1" disabled>Analyze Motion</button>
+        <button class="btn btn-ghost" id="motBookmarkBtn" style="flex:1" disabled>Pin Anomalies</button>
+      </div>
+      <div class="mot-progress" id="motProgress"><div class="mot-progress-bar" id="motProgressBar"></div></div>
+      <div class="mot-wrap">
+        <canvas id="motCanvas" width="220" height="70"></canvas>
+        <div class="mot-legend">
+          <span class="mot-stat"><span>frames</span> <b id="mot-frames">—</b></span>
+          <span class="mot-stat flag"><span>spikes</span> <b id="mot-spikes">—</b></span>
+          <span class="mot-stat pulse"><span>pulse</span> <b id="mot-pulse">—</b></span>
+        </div>
+        <div class="mot-legend" style="margin-top:3px">
+          <span class="mot-stat"><span>irregularity</span> <b id="mot-irr">—</b></span>
+          <span class="mot-stat"><span>periodicity</span> <b id="mot-per">—</b></span>
+          <span class="mot-stat"><span>jerk</span> <b id="mot-jerk">—</b></span>
+        </div>
+      </div>
+      <div class="insp-note"><b>Spikes</b>: instantaneous outliers (cuts/jumps). <b>Irregularity</b> 0..100: how chaotic vs. smooth — high values flag tremors and unnatural motion. <b>Periodicity</b> 0..100: how rhythmic — high values mean a steady beat (heart, gait, machinery). <b>Pulse</b> requires a selection (rPPG green-channel FFT).</div>
+
+      <div class="sec-head">Blur Detection</div>
+      <div class="ctrl">
+        <div class="ctrl-row"><span class="ctrl-name">Sensitivity</span><span class="ctrl-val" id="v-blurSens">15</span>%</div>
+        <input type="range" id="s-blurSens" min="3" max="60" value="15">
+      </div>
+      <div class="insp-row">
+        <button class="btn btn-accent" id="detectBlurBtn" style="flex:1" disabled>Detect Blur</button>
+        <button class="btn btn-ghost" id="clearBlurBtn" style="flex:1" disabled>Clear</button>
+      </div>
+      <div class="blur-result" id="blurResult" style="display:none"></div>
+      <div class="insp-note">Highlights blurry regions using Laplacian edge analysis. Useful for spotting redacted or motion-blurred areas.</div>
+
+      <div class="sec-head">Bookmarks</div>
+      <div class="insp-row">
+        <button class="btn btn-accent" id="bmPinBtn" style="flex:1" disabled>Pin Frame (B)</button>
+      </div>
+      <div class="bm-list" id="bmList"></div>
+      <div class="bm-empty" id="bmEmpty">No bookmarks yet. Press <b style="color:var(--text)">B</b> to pin the current frame.</div>
+      <div class="insp-row" style="margin-top:7px">
+        <button class="btn btn-ghost" id="reportBtn" style="flex:1" disabled>Export Report (PDF)</button>
+      </div>
+      <div class="insp-note">PDF with a frame snapshot + your note for each bookmark.</div>
+    </div>
+
+    <!-- ── Crop ── -->
+    <div class="panel" id="p-crop">
+      <div class="sec-head" style="margin-top:0">Aspect Ratio</div>
+      <div class="ratio-grid">
+        <button class="ratio-btn on" data-r="free">Free</button>
+        <button class="ratio-btn" data-r="16:9">16:9</button>
+        <button class="ratio-btn" data-r="9:16">9:16</button>
+        <button class="ratio-btn" data-r="4:3">4:3</button>
+        <button class="ratio-btn" data-r="1:1">1:1</button>
+        <button class="ratio-btn" data-r="3:2">3:2</button>
+        <button class="ratio-btn" data-r="21:9">21:9</button>
+        <button class="ratio-btn" data-r="5:4">5:4</button>
+      </div>
+      <div class="sec-head">Pixel Values</div>
+      <div class="crop-dims">
+        <div><div class="dim-label">X</div><input class="dim-input" type="number" id="cx" value="0" min="0"></div>
+        <div><div class="dim-label">Y</div><input class="dim-input" type="number" id="cy" value="0" min="0"></div>
+        <div><div class="dim-label">Width</div><input class="dim-input" type="number" id="cw" value="0" min="1"></div>
+        <div><div class="dim-label">Height</div><input class="dim-input" type="number" id="ch" value="0" min="1"></div>
+      </div>
+      <div style="display:flex;gap:7px">
+        <button class="btn btn-ghost" id="cropReset" style="flex:1">Reset</button>
+        <button class="btn btn-accent" id="cropApply" style="flex:1">Apply</button>
+      </div>
+      <div class="tip">Drag the crop box to reposition. Use corner and edge handles to resize.</div>
+    </div>
+  </div>
+
+  <!-- Preview -->
+  <div class="center">
+    <div class="preview" id="preview">
+      <!-- Loupe -->
+      <div class="loupe-wrap" id="loupeWrap">
+        <canvas id="loupeCanvas" width="160" height="160"></canvas>
+      </div>
+      <!-- Color tooltip -->
+      <div class="color-tip" id="colorTip">
+        <div class="ctip-swatch" id="ctipSwatch"></div>
+        <div class="ctip-vals"><span id="ctipHex">#000000</span><small id="ctipRGB">R:0 G:0 B:0</small></div>
+      </div>
+      <!-- Zoom HUD (Figma-style) -->
+      <div class="zoom-hud" id="zoomHud">
+        <button class="zhbtn" id="zoomOut" title="Zoom out  Cmd + −">−</button>
+        <span id="zoomDisplay" title="Cmd+0 fit  Cmd+1 actual size">100%</span>
+        <button class="zhbtn" id="zoomIn"  title="Zoom in   Cmd + =">+</button>
+      </div>
+      <div class="drop-zone" id="dropZone">
+        <svg class="drop-icon" viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="6" y="12" width="44" height="32" rx="4"/>
+          <polygon points="23,22 23,34 35,28" fill="currentColor" stroke="none"/>
+        </svg>
+        <h3>Open a Video</h3>
+        <p>Click "Open File" or drag a video here</p>
+      </div>
+      <div class="vwrap" id="vwrap">
+        <video id="vid" preload="metadata"></video>
+        <div class="vignette" id="vignette"></div>
+        <canvas id="fxCanvas"></canvas>
+        <div class="grid-ol" id="gridOl"></div>
+        <div class="grid-cross" id="gridCross"></div>
+        <div class="safe-ol" id="safeOl"></div>
+        <canvas id="lassoCanvas"></canvas>
+        <canvas id="drawCanvas"></canvas>
+        <div class="crop-ol" id="cropOl">
+          <div class="cbox" id="cbox">
+            <div class="cgrid"></div>
+            <div class="ch" data-h="nw"></div><div class="ch" data-h="ne"></div>
+            <div class="ch" data-h="sw"></div><div class="ch" data-h="se"></div>
+            <div class="ch" data-h="n"></div><div class="ch" data-h="s"></div>
+            <div class="ch" data-h="e"></div><div class="ch" data-h="w"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cbar">
+      <div class="tline" id="tline">
+        <div class="tline-prog" id="tprog"></div>
+        <div class="tline-marks" id="tlineMarks"></div>
+        <div class="tline-thumb" id="tthumb"></div>
+      </div>
+      <div class="prow">
+        <button class="step-btn" id="stepBackBar" disabled title="← one frame  (,)">◀</button>
+        <button class="play-btn" id="playBtn" aria-label="Play">
+          <svg class="icon-play" width="13" height="13" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          <svg class="icon-pause" width="13" height="13" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+        </button>
+        <button class="step-btn" id="stepFwdBar"  disabled title="→ one frame  (.)">▶</button>
+        <span class="tdisplay" id="tdisp">0:00 / 0:00</span>
+        <span class="tc-disp" id="tcDisp" title="SMPTE timecode HH:MM:SS:FF">00:00:00:00</span>
+        <div class="speed-wrap" title="Playback speed (0.1 – 80×)">
+          <input type="number" id="speedInput" min="0.1" max="80" step="0.05" value="1">
+          <span>×</span>
+        </div>
+        <div class="vol" style="margin-left:auto">
+          <svg width="15" height="15" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+          <input type="range" id="volR" min="0" max="1" step="0.05" value="1">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Compare Modal -->
+<div class="modal-bg" id="compareModal">
+  <div class="modal">
+    <h3>AI Enhancement — Frame Comparison</h3>
+    <div class="compare-imgs">
+      <div class="compare-side"><span>Original</span><img id="compareOrig" src="" alt="Original frame"></div>
+      <div class="compare-side"><span>Enhanced</span><img id="compareEnhanced" src="" alt="Enhanced frame"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="compareClose">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Help Modal -->
+<div class="modal-bg" id="helpModal">
+  <div class="modal help-modal">
+    <div class="help-head">
+      <h3>How To · Tips</h3>
+      <input class="help-search" id="helpSearch" type="text" placeholder='Search ("loupe", "false color", "shortcuts"…)' autocomplete="off">
+      <button class="btn btn-ghost" id="helpClose" style="padding:4px 10px">Close</button>
+    </div>
+    <div class="help-tabs" id="helpTabs"></div>
+    <div class="help-body" id="helpBody"></div>
+    <div class="help-foot">
+      <span>Press <span class="kbd" style="background:#222;border:1px solid #3a3a3a;color:var(--accent);padding:1px 6px;border-radius:4px;font-family:monospace">?</span> any time to open this · <span class="kbd" style="background:#222;border:1px solid #3a3a3a;color:var(--accent);padding:1px 6px;border-radius:4px;font-family:monospace">Esc</span> to close</span>
+      <span>VideoEdit · Forensic Inspection</span>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<input type="file" id="fileIn" accept="video/*,.mp4,.mov,.m4v,.webm,.mkv,.avi,.ogg,.ogv,.ts,.mts,.m2ts" style="display:none">
+<canvas id="xcanvas"></canvas>
+
+<script>
+'use strict';
+
+// ── Elements ──────────────────────────────────────────────────────
+const vid        = document.getElementById('vid');
+const vwrap      = document.getElementById('vwrap');
+const preview    = document.getElementById('preview');
+const dropZone   = document.getElementById('dropZone');
+const fileIn     = document.getElementById('fileIn');
+const openBtn    = document.getElementById('openBtn');
+const exportBtn  = document.getElementById('exportBtn');
+const resetBtn   = document.getElementById('resetBtn');
+const playBtn    = document.getElementById('playBtn');
+const tline      = document.getElementById('tline');
+const tprog      = document.getElementById('tprog');
+const tthumb     = document.getElementById('tthumb');
+const tdisp      = document.getElementById('tdisp');
+const volR       = document.getElementById('volR');
+const speedInput = document.getElementById('speedInput');
+const zoomHud    = document.getElementById('zoomHud');
+const zoomDisp   = document.getElementById('zoomDisplay');
+const cropOl     = document.getElementById('cropOl');
+const cbox       = document.getElementById('cbox');
+const vigEl      = document.getElementById('vignette');
+const xcanvas    = document.getElementById('xcanvas');
+const toastEl    = document.getElementById('toast');
+const autoEnhBtn = document.getElementById('autoEnhBtn');
+const aiEnhBtn   = document.getElementById('aiEnhBtn');
+const aiBox      = document.getElementById('aiBox');
+const drawCanvas = document.getElementById('drawCanvas');
+const dctx       = drawCanvas.getContext('2d');
+const fxCanvas   = document.getElementById('fxCanvas');
+const fctx       = fxCanvas.getContext('2d', { willReadFrequently: true });
+
+// ── Adjustment state ──────────────────────────────────────────────
+const A = {
+  exposure:0, brightness:0, contrast:0, highlights:0, shadows:0,
+  saturation:0, temperature:0, tint:0, hue:0, vignette:0, blur:0
+};
+let crop = {x:0, y:0, w:100, h:100};
+let cropRatio = 'free';
+let loaded = false;
+let audioCtx = null, audioSrc = null;
+
+// ── Zoom / pan state ─────────────────────────────────────────────
+let zoom      = 1;
+let panX      = 0;   // vwrap left offset from preview top-left
+let panY      = 0;
+let spaceDown = false;
+let isPanning = false;
+let panSX = 0, panSY = 0, panSPX = 0, panSPY = 0;
+// Standard zoom levels (Figma-style snapping with +/- keys)
+const ZOOM_LEVELS = [0.1,0.25,0.33,0.5,0.67,0.75,1,1.25,1.5,2,3,4,6,8,10,16];
+
+// ── Draw state ────────────────────────────────────────────────────
+const PALETTE = [
+  {hex:'#ffff00', border:'#555'},
+  {hex:'#ff4444', border:null},
+  {hex:'#44aaff', border:null},
+  {hex:'#44ee88', border:null},
+  {hex:'#ff88ff', border:null},
+  {hex:'#ff8800', border:null},
+  {hex:'#ffffff', border:'#555'},
+  {hex:'#111111', border:'#555'},
+];
+let drawTool    = 'highlighter';
+let drawColor   = '#ffff00';
+let drawSize    = 22;
+let drawOpacity = 40;
+let strokes     = [];   // completed strokes
+let curStroke   = null; // stroke being drawn
+let isDrawing   = false;
+let drawTabOpen = false;
+
+// Build color swatches
+const palette = document.getElementById('colorPalette');
+PALETTE.forEach(p => {
+  const sw = document.createElement('button');
+  sw.className = 'cswatch' + (p.hex === drawColor ? ' on' : '');
+  sw.style.background = p.hex;
+  if (p.border) sw.style.outline = `1px solid ${p.border}`;
+  sw.title = p.hex;
+  sw.addEventListener('click', () => {
+    document.querySelectorAll('.cswatch').forEach(s => s.classList.remove('on'));
+    sw.classList.add('on');
+    drawColor = p.hex;
+  });
+  palette.appendChild(sw);
+});
+
+// Tool buttons
+document.querySelectorAll('.tool-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    drawTool = btn.dataset.tool;
+    drawCanvas.style.cursor =
+      drawTool === 'eraser' ? 'cell' :
+      drawTool === 'wand'   ? 'crosshair' :
+      'crosshair';
+    // Hide opacity for tools where it doesn't apply
+    const noOpacity = drawTool === 'pencil' || drawTool === 'lasso' || drawTool === 'wand';
+    document.getElementById('opacityCtrl').style.display = noOpacity ? 'none' : 'block';
+    // Leaving a lasso-in-progress when switching tools: cancel it
+    if (drawTool !== 'lasso' && lassoPath && !lassoPath.closed) {
+      cancelLasso();
+    }
+    // Hover preview should reset whenever the tool changes
+    lassoHover = null;
+  });
+});
+
+document.getElementById('s-drawSize').addEventListener('input', e => {
+  drawSize = parseInt(e.target.value);
+  document.getElementById('v-drawSize').textContent = drawSize;
+});
+document.getElementById('s-drawOpacity').addEventListener('input', e => {
+  drawOpacity = parseInt(e.target.value);
+  document.getElementById('v-drawOpacity').textContent = drawOpacity;
+});
+
+// ── Draw canvas resize ────────────────────────────────────────────
+function resizeDrawCanvas() {
+  const {w, h} = vSize();
+  drawCanvas.width  = Math.round(w);
+  drawCanvas.height = Math.round(h);
+  redrawStrokes();
+  // FX overlay canvas mirrors the same display size
+  fxCanvas.width  = drawCanvas.width;
+  fxCanvas.height = drawCanvas.height;
+  if (liveFx !== 'off') tickFx(true);
+  // Lasso canvas too
+  if (typeof resizeLassoCanvas === 'function') resizeLassoCanvas();
+}
+
+// ── Stroke rendering ──────────────────────────────────────────────
+function renderStroke(ctx, s, cw, ch) {
+  if (!s.points || s.points.length === 0) return;
+  ctx.save();
+  ctx.lineCap  = 'round';
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = s.width;
+
+  if (s.tool === 'eraser') {
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = 'rgba(0,0,0,1)';
+  } else {
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = s.opacity / 100;
+    ctx.strokeStyle = s.color;
+  }
+
+  ctx.beginPath();
+  if (s.points.length === 1) {
+    // Single tap → filled circle
+    ctx.arc(s.points[0].x * cw, s.points[0].y * ch, s.width / 2, 0, Math.PI * 2);
+    if (s.tool !== 'eraser') ctx.fillStyle = s.color;
+    ctx.fill();
+  } else {
+    ctx.moveTo(s.points[0].x * cw, s.points[0].y * ch);
+    for (let i = 1; i < s.points.length - 1; i++) {
+      const mx = (s.points[i].x + s.points[i+1].x) / 2 * cw;
+      const my = (s.points[i].y + s.points[i+1].y) / 2 * ch;
+      ctx.quadraticCurveTo(s.points[i].x * cw, s.points[i].y * ch, mx, my);
+    }
+    const last = s.points[s.points.length - 1];
+    ctx.lineTo(last.x * cw, last.y * ch);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function redrawStrokes() {
+  const {w, h} = vSize();
+  dctx.clearRect(0, 0, w, h);
+  strokes.forEach(s => renderStroke(dctx, s, w, h));
+  if (curStroke) renderStroke(dctx, curStroke, w, h);
+}
+
+// ── Draw events ───────────────────────────────────────────────────
+// Explicitly invert the vwrap transform: translate(panX,panY) scale(zoom)
+// Avoids getBoundingClientRect quirks on CSS-transformed elements.
+function canvasPos(e) {
+  const pr = preview.getBoundingClientRect();
+  const {w, h} = vSize();
+  // Mouse in preview-container space → invert transform → canvas CSS coords → normalize
+  const cx = (e.clientX - pr.left - panX) / zoom;
+  const cy = (e.clientY - pr.top  - panY) / zoom;
+  return {
+    x: Math.max(0, Math.min(1, cx / w)),
+    y: Math.max(0, Math.min(1, cy / h))
+  };
+}
+
+drawCanvas.addEventListener('mousedown', e => {
+  if (!drawTabOpen) return;
+  e.preventDefault();
+  e.stopPropagation(); // prevent video click-to-pause firing
+  if (drawTool === 'lasso') {
+    lassoMouseDown(canvasPos(e), e);
+    return;
+  }
+  if (drawTool === 'wand') {
+    magicWand(canvasPos(e), e);
+    return;
+  }
+  isDrawing = true;
+  curStroke = {
+    tool: drawTool, color: drawColor,
+    width: drawSize, opacity: drawTool === 'highlighter' ? drawOpacity : 100,
+    points: [canvasPos(e)]
+  };
+  redrawStrokes();
+});
+
+// mousemove and mouseup on DOCUMENT so strokes survive
+// moving outside the video bounds (important when zoomed in)
+document.addEventListener('mousemove', e => {
+  if (lassoDrawing) { extendLasso(canvasPos(e)); return; }
+  if (drawTabOpen && drawTool === 'lasso' && lassoPath && !lassoPath.closed) {
+    // Polygonal mode: show preview segment to cursor
+    lassoHover = canvasPos(e);
+    startLassoLoop(); // ensure tick runs so the preview redraws
+    return;
+  }
+  if (!isDrawing || !curStroke) return;
+  curStroke.points.push(canvasPos(e));
+  redrawStrokes();
+});
+
+function endStroke() {
+  if (!isDrawing || !curStroke) return;
+  isDrawing = false;
+  strokes.push(curStroke);
+  curStroke = null;
+  redrawStrokes();
+  updateDrawActions();
+}
+document.addEventListener('mouseup', e => {
+  if (lassoDrawing) { lassoMouseUp(); e.stopPropagation(); return; }
+  if (isDrawing)    { endStroke(); e.stopPropagation(); }
+});
+
+// ── Lasso (freehand drag + polygonal click) ───────────────
+const lassoCanvas = document.getElementById('lassoCanvas');
+const lasctx = lassoCanvas.getContext('2d');
+let lassoPath = null;           // { points: [{x,y}], closed: bool }
+let lassoDrawing = false;       // true during freehand drag
+let lassoMouseDownAt = null;    // {x,y, t} for click vs drag detection
+let lassoHover = null;          // polygonal preview point
+let lassoDashOffset = 0;
+let lassoRafId = null;
+
+const CLOSE_RADIUS = 12;   // px from start-point to "close" a polygonal lasso
+const DRAG_THRESHOLD = 5;  // px movement before mousedown becomes a drag
+
+function resizeLassoCanvas() {
+  lassoCanvas.width  = drawCanvas.width;
+  lassoCanvas.height = drawCanvas.height;
+  drawLasso();
+}
+
+// Single mousedown entry point — decides freehand vs polygonal in mouseup
+function lassoMouseDown(pt, e) {
+  lassoMouseDownAt = { x: pt.x, y: pt.y, t: performance.now() };
+  // If a polygonal-in-progress lasso exists AND user clicked near start, close it
+  if (lassoPath && !lassoPath.closed && lassoPath.points.length >= 3) {
+    const start = lassoPath.points[0];
+    if (Math.hypot(pt.x - start.x, pt.y - start.y) < CLOSE_RADIUS) {
+      closeLasso();
+      return;
+    }
+  }
+  // Start (or continue) — provisionally start a freehand drag.
+  // If user releases without moving, mouseup converts to polygonal click.
+  if (!lassoPath || lassoPath.closed) {
+    lassoPath = { points: [pt], closed: false };
+    lassoDrawing = true;
+    startLassoLoop();
+  } else {
+    // Polygonal-in-progress: add a vertex on click
+    const last = lassoPath.points[lassoPath.points.length - 1];
+    if (Math.hypot(pt.x - last.x, pt.y - last.y) >= 1) {
+      lassoPath.points.push(pt);
+    }
+    lassoDrawing = false; // a click adds a vertex, drag would be a new gesture
+  }
+  drawLasso();
+  updateLassoUI();
+}
+
+function extendLasso(pt) {
+  if (!lassoPath || !lassoDrawing) return;
+  // Only commit to "drag" mode after passing threshold
+  if (lassoMouseDownAt) {
+    const d = Math.hypot(pt.x - lassoMouseDownAt.x, pt.y - lassoMouseDownAt.y);
+    if (d < DRAG_THRESHOLD) return;
+    lassoMouseDownAt = null; // crossed threshold — we're dragging
+  }
+  // Decimate: skip points within 3px of the last
+  const last = lassoPath.points[lassoPath.points.length - 1];
+  if (Math.hypot(pt.x - last.x, pt.y - last.y) < 3) return;
+  lassoPath.points.push(pt);
+}
+
+function lassoMouseUp() {
+  const wasDrag = lassoMouseDownAt === null; // crossed threshold during extend
+  lassoMouseDownAt = null;
+  if (wasDrag) {
+    // Freehand drag completed — close the path
+    lassoDrawing = false;
+    if (lassoPath && lassoPath.points.length >= 3) {
+      lassoPath.closed = true;
+    } else {
+      // Too short
+      lassoPath = null;
+      stopLassoLoop();
+    }
+  } else {
+    // Single click — polygonal mode. Don't close yet, wait for more clicks.
+    lassoDrawing = false;
+    // If only 1 point so far, just stay open
+  }
+  drawLasso();
+  updateLassoUI();
+}
+
+function closeLasso() {
+  if (!lassoPath) return;
+  if (lassoPath.points.length < 3) {
+    lassoPath = null;
+    stopLassoLoop();
+  } else {
+    lassoPath.closed = true;
+  }
+  lassoDrawing = false;
+  lassoHover = null;
+  drawLasso();
+  updateLassoUI();
+}
+
+function cancelLasso() {
+  lassoPath = null;
+  lassoDrawing = false;
+  lassoHover = null;
+  stopLassoLoop();
+  drawLasso();
+  updateLassoUI();
+}
+
+function drawLasso() {
+  if (!lassoCanvas.width) return;
+  lasctx.clearRect(0, 0, lassoCanvas.width, lassoCanvas.height);
+  if (!lassoPath || lassoPath.points.length < 1) return;
+  const pts = lassoPath.points;
+
+  // Soft inner fill so the user can see what's enclosed
+  if (lassoPath.closed && pts.length >= 3) {
+    lasctx.beginPath();
+    lasctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) lasctx.lineTo(pts[i].x, pts[i].y);
+    lasctx.closePath();
+    lasctx.fillStyle = 'rgba(62,207,142,.08)';
+    lasctx.fill();
+  }
+
+  if (pts.length >= 2) {
+    // Outline shadow for contrast on bright video
+    lasctx.lineWidth = 3;
+    lasctx.strokeStyle = 'rgba(0,0,0,.6)';
+    lasctx.setLineDash([]);
+    lasctx.beginPath();
+    lasctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) lasctx.lineTo(pts[i].x, pts[i].y);
+    if (lassoPath.closed) lasctx.closePath();
+    lasctx.stroke();
+
+    // Marching ants
+    lasctx.lineWidth = 1.5;
+    lasctx.strokeStyle = '#3ecf8e';
+    lasctx.setLineDash([6, 4]);
+    lasctx.lineDashOffset = -lassoDashOffset;
+    lasctx.beginPath();
+    lasctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) lasctx.lineTo(pts[i].x, pts[i].y);
+    if (lassoPath.closed) lasctx.closePath();
+    lasctx.stroke();
+    lasctx.setLineDash([]);
+  }
+
+  // Polygonal-mode preview segment from last point to cursor
+  if (!lassoPath.closed && lassoHover && pts.length >= 1) {
+    const last = pts[pts.length - 1];
+    lasctx.strokeStyle = 'rgba(62,207,142,.6)';
+    lasctx.lineWidth = 1.5;
+    lasctx.setLineDash([3, 3]);
+    lasctx.beginPath();
+    lasctx.moveTo(last.x, last.y);
+    lasctx.lineTo(lassoHover.x, lassoHover.y);
+    lasctx.stroke();
+    lasctx.setLineDash([]);
+  }
+
+  // Vertex dots — small green circles at each anchor
+  if (!lassoPath.closed) {
+    lasctx.fillStyle = '#3ecf8e';
+    pts.forEach((p, i) => {
+      lasctx.beginPath();
+      lasctx.arc(p.x, p.y, i === 0 ? 5 : 3, 0, Math.PI * 2);
+      lasctx.fill();
+    });
+    // Close indicator: when hovering near start, ring the first point
+    if (lassoHover && pts.length >= 3) {
+      const d = Math.hypot(lassoHover.x - pts[0].x, lassoHover.y - pts[0].y);
+      if (d < CLOSE_RADIUS) {
+        lasctx.strokeStyle = '#3ecf8e';
+        lasctx.lineWidth = 2;
+        lasctx.beginPath();
+        lasctx.arc(pts[0].x, pts[0].y, CLOSE_RADIUS, 0, Math.PI * 2);
+        lasctx.stroke();
+      }
+    }
+  }
+}
+
+function tickLasso() {
+  lassoDashOffset = (lassoDashOffset + 0.6) % 10;
+  drawLasso();
+  if (lassoPath) lassoRafId = requestAnimationFrame(tickLasso);
+  else lassoRafId = null;
+}
+function startLassoLoop() {
+  if (lassoRafId == null) lassoRafId = requestAnimationFrame(tickLasso);
+}
+function stopLassoLoop() {
+  if (lassoRafId != null) cancelAnimationFrame(lassoRafId);
+  lassoRafId = null;
+}
+
+function updateLassoUI() {
+  const pill   = document.getElementById('lassoPill');
+  const clr    = document.getElementById('lassoClear');
+  const bm     = document.getElementById('lassoBookmark');
+  const save   = document.getElementById('lassoSave');
+  const ana    = document.getElementById('lassoAnalyze');
+  const hasSel = !!(lassoPath && lassoPath.closed);
+  clr.disabled  = !lassoPath;
+  bm.disabled   = !hasSel || !loaded;
+  if (save) save.disabled = !hasSel;
+  if (ana)  ana.disabled  = !hasSel || !loaded;
+  if (lassoPath) {
+    pill.style.display = 'inline-block';
+    pill.textContent = `${lassoPath.points.length} pts`;
+  } else {
+    pill.style.display = 'none';
+  }
+}
+
+document.getElementById('lassoClear').addEventListener('click', cancelLasso);
+
+// ── Selection Library ────────────────────────────────────
+let savedSelections = []; // [{id, name, points: [{x,y}] normalized 0..1}]
+let selIdSeq = 0;
+const selListEl  = document.getElementById('selList');
+const selEmptyEl = document.getElementById('selEmpty');
+const lassoSaveBtn    = document.getElementById('lassoSave');
+const lassoAnalyzeBtn = document.getElementById('lassoAnalyze');
+
+function saveCurrentSelection() {
+  if (!lassoPath || !lassoPath.closed || lassoPath.points.length < 3) return;
+  // Normalize so it survives canvas resizes
+  const norm = lassoPath.points.map(p => ({
+    x: p.x / lassoCanvas.width,
+    y: p.y / lassoCanvas.height,
+  }));
+  savedSelections.push({
+    id: ++selIdSeq,
+    name: `Region ${savedSelections.length + 1}`,
+    points: norm,
+  });
+  renderSelections();
+  showToast('Selection saved to library');
+}
+
+function recallSelection(id) {
+  const s = savedSelections.find(x => x.id === id);
+  if (!s) return;
+  // Convert back to display coords using current canvas size
+  lassoPath = {
+    points: s.points.map(p => ({
+      x: p.x * lassoCanvas.width,
+      y: p.y * lassoCanvas.height,
+    })),
+    closed: true,
+  };
+  lassoDrawing = false;
+  startLassoLoop();
+  drawLasso();
+  updateLassoUI();
+  showToast(`Recalled "${s.name}"`);
+}
+
+function deleteSelection(id) {
+  savedSelections = savedSelections.filter(x => x.id !== id);
+  renderSelections();
+}
+
+function renameSelection(id, name) {
+  const s = savedSelections.find(x => x.id === id);
+  if (s) s.name = name;
+}
+
+function renderSelections() {
+  selListEl.replaceChildren();
+  selEmptyEl.style.display = savedSelections.length === 0 ? 'block' : 'none';
+  savedSelections.forEach(s => {
+    const row = document.createElement('div');
+    row.className = 'sel-row';
+
+    const name = document.createElement('input');
+    name.type = 'text';
+    name.className = 'sel-name';
+    name.value = s.name;
+    name.addEventListener('input', () => renameSelection(s.id, name.value));
+
+    const meta = document.createElement('span');
+    meta.className = 'sel-meta';
+    meta.textContent = `${s.points.length}p`;
+
+    const recall = document.createElement('button');
+    recall.className = 'sel-act';
+    recall.textContent = '↻';
+    recall.title = 'Recall this selection';
+    recall.addEventListener('click', () => recallSelection(s.id));
+
+    const del = document.createElement('button');
+    del.className = 'sel-act sel-del';
+    del.textContent = '×';
+    del.title = 'Delete';
+    del.addEventListener('click', () => deleteSelection(s.id));
+
+    row.append(name, meta, recall, del);
+    selListEl.appendChild(row);
+  });
+}
+
+document.getElementById('lassoSave').addEventListener('click', saveCurrentSelection);
+renderSelections(); // initial empty state
+document.getElementById('lassoAnalyze').addEventListener('click', () => {
+  if (!lassoPath || !lassoPath.closed) return;
+  // Jump to Inspect tab, enable restrict-to-selection, run analyzer
+  document.querySelector('.tab[data-t="inspect"]').click();
+  setTimeout(() => {
+    document.getElementById('motRestrict').checked = true;
+    // Scroll to the analyzer
+    document.getElementById('motAnalyzeBtn').scrollIntoView({ block:'center', behavior:'smooth' });
+    document.getElementById('motAnalyzeBtn').click();
+  }, 250);
+});
+
+// Enter closes a polygonal lasso; Esc cancels it
+document.addEventListener('keydown', e => {
+  if (!drawTabOpen || drawTool !== 'lasso') return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key === 'Enter' && lassoPath && !lassoPath.closed) {
+    e.preventDefault(); closeLasso();
+  }
+  if (e.key === 'Escape' && lassoPath) {
+    e.preventDefault(); cancelLasso();
+  }
+});
+
+// ── Magic Wand (flood-fill selection by color similarity) ─────────
+function magicWand(pt, e) {
+  if (!loaded || !vid.videoWidth) return;
+  // Sample at video native resolution for accurate boundary
+  const VW = vid.videoWidth, VH = vid.videoHeight;
+  // Convert display-space click to video-space
+  const sx = Math.round(pt.x / lassoCanvas.width  * VW);
+  const sy = Math.round(pt.y / lassoCanvas.height * VH);
+  if (sx < 0 || sy < 0 || sx >= VW || sy >= VH) return;
+
+  // Grab the current frame
+  const tmp = document.createElement('canvas');
+  tmp.width = VW; tmp.height = VH;
+  const tctx = tmp.getContext('2d');
+  tctx.drawImage(vid, 0, 0);
+  const img = tctx.getImageData(0, 0, VW, VH);
+  const d = img.data;
+  const idx = (x, y) => (y * VW + x) * 4;
+  const r0 = d[idx(sx,sy)], g0 = d[idx(sx,sy)+1], b0 = d[idx(sx,sy)+2];
+
+  // Tolerance — Shift = wider, Alt = tighter
+  let tol = 24;
+  if (e && e.shiftKey) tol = 48;
+  if (e && e.altKey)   tol = 10;
+
+  // Iterative flood fill via stack (no recursion blowup on large regions)
+  const visited = new Uint8Array(VW * VH);
+  const stack = [[sx, sy]];
+  const inRange = (r,g,b) =>
+    Math.abs(r - r0) <= tol &&
+    Math.abs(g - g0) <= tol &&
+    Math.abs(b - b0) <= tol;
+  // Cap iterations to avoid hangs on huge selections (1MP = 1M iter ≈ fine)
+  const maxIter = VW * VH;
+  let iter = 0;
+  while (stack.length && iter < maxIter) {
+    iter++;
+    const [x, y] = stack.pop();
+    if (x < 0 || y < 0 || x >= VW || y >= VH) continue;
+    const li = y * VW + x;
+    if (visited[li]) continue;
+    const di = li * 4;
+    if (!inRange(d[di], d[di+1], d[di+2])) continue;
+    visited[li] = 1;
+    stack.push([x+1, y], [x-1, y], [x, y+1], [x, y-1]);
+  }
+
+  // Trace boundary via marching squares — quick & cheap version:
+  // Find topmost/leftmost selected pixel, then walk the border clockwise.
+  let startX = -1, startY = -1;
+  outer: for (let y = 0; y < VH; y++) {
+    for (let x = 0; x < VW; x++) {
+      if (visited[y * VW + x]) { startX = x; startY = y; break outer; }
+    }
+  }
+  if (startX < 0) return; // empty selection
+
+  // Moore-neighbor boundary trace
+  const path = [];
+  const sel = (x, y) => (x < 0 || y < 0 || x >= VW || y >= VH) ? 0 : visited[y * VW + x];
+  const dirs = [[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]];
+  let cx = startX, cy = startY, dir = 0;
+  const seen = new Set();
+  for (let i = 0; i < VW * VH * 2; i++) {
+    const key = cy * VW + cx;
+    path.push({ x: cx, y: cy });
+    if (path.length > 3 && cx === startX && cy === startY) break;
+    if (seen.has(key) && path.length > 8) {
+      // path is closing back — break
+    }
+    seen.add(key);
+    // Search neighbors starting from (dir - 2) % 8 clockwise
+    let found = false;
+    for (let k = 0; k < 8; k++) {
+      const nd = (dir + 6 + k) % 8;
+      const nx = cx + dirs[nd][0];
+      const ny = cy + dirs[nd][1];
+      if (sel(nx, ny)) {
+        cx = nx; cy = ny; dir = nd; found = true; break;
+      }
+    }
+    if (!found) break;
+  }
+
+  // Decimate path to ~200 points for sanity
+  const dec = [];
+  const step = Math.max(1, Math.floor(path.length / 200));
+  for (let i = 0; i < path.length; i += step) dec.push(path[i]);
+
+  // Map back to display coords
+  const sx2dx = lassoCanvas.width / VW;
+  const sy2dy = lassoCanvas.height / VH;
+  lassoPath = {
+    points: dec.map(p => ({ x: p.x * sx2dx, y: p.y * sy2dy })),
+    closed: true
+  };
+  startLassoLoop();
+  drawLasso();
+  updateLassoUI();
+  showToast(`Magic Wand: ${dec.length} edge points (tol ${tol})`);
+}
+document.getElementById('lassoBookmark').addEventListener('click', () => {
+  if (!lassoPath || !lassoPath.closed || !loaded) return;
+  addBookmark();
+  // Attach the lasso (display-space) + display dims to the bookmark so PDF can render it
+  const b = bookmarks[bookmarks.length - 1];
+  if (b) {
+    b.lasso = lassoPath.points.map(p => ({ x: p.x / lassoCanvas.width, y: p.y / lassoCanvas.height }));
+  }
+  renderBookmarks();
+});
+
+function updateDrawActions() {
+  document.getElementById('undoBtn').disabled    = strokes.length === 0;
+  document.getElementById('clearDrawBtn').disabled = strokes.length === 0;
+}
+
+document.getElementById('undoBtn').addEventListener('click', () => {
+  if (strokes.length > 0) { strokes.pop(); redrawStrokes(); updateDrawActions(); }
+});
+document.getElementById('clearDrawBtn').addEventListener('click', () => {
+  strokes = []; curStroke = null;
+  dctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+  updateDrawActions();
+});
+
+// ── Presets ───────────────────────────────────────────────────────
+const PRESETS = [
+  { name:'Natural',   bg:'linear-gradient(135deg,#3a7a58,#6aaa88)',
+    vals:{exposure:3,brightness:5,contrast:8,saturation:12,temperature:0,tint:0,hue:0,highlights:-5,shadows:8,vignette:5,blur:0} },
+  { name:'Vivid',     bg:'linear-gradient(135deg,#c4522a,#e07050)',
+    vals:{exposure:5,brightness:0,contrast:28,saturation:50,temperature:5,tint:0,hue:0,highlights:-15,shadows:12,vignette:12,blur:0} },
+  { name:'Cinematic', bg:'linear-gradient(135deg,#3a2e1e,#7a6040)',
+    vals:{exposure:-8,brightness:0,contrast:38,saturation:-20,temperature:22,tint:-5,hue:0,highlights:-25,shadows:28,vignette:30,blur:0} },
+  { name:'Vintage',   bg:'linear-gradient(135deg,#8a6020,#c4a060)',
+    vals:{exposure:-12,brightness:12,contrast:-12,saturation:-35,temperature:45,tint:12,hue:5,highlights:-8,shadows:35,vignette:35,blur:0} },
+  { name:'Cool Blue', bg:'linear-gradient(135deg,#1a3a6a,#3a6aaa)',
+    vals:{exposure:0,brightness:5,contrast:12,saturation:22,temperature:-55,tint:-12,hue:0,highlights:-5,shadows:0,vignette:5,blur:0} },
+  { name:'Drama',     bg:'linear-gradient(135deg,#111,#383838)',
+    vals:{exposure:-18,brightness:0,contrast:65,saturation:-45,temperature:0,tint:0,hue:0,highlights:-35,shadows:45,vignette:45,blur:0} },
+  { name:'Fade',      bg:'linear-gradient(135deg,#6a6058,#a09888)',
+    vals:{exposure:12,brightness:22,contrast:-32,saturation:-22,temperature:5,tint:0,hue:0,highlights:22,shadows:45,vignette:0,blur:0} },
+  { name:'B&W',       bg:'linear-gradient(135deg,#282828,#686868)',
+    vals:{exposure:0,brightness:0,contrast:22,saturation:-100,temperature:0,tint:0,hue:0,highlights:-12,shadows:12,vignette:22,blur:0} },
+  { name:'Warm Film', bg:'linear-gradient(135deg,#8a4010,#d47830)',
+    vals:{exposure:5,brightness:5,contrast:18,saturation:22,temperature:65,tint:18,hue:0,highlights:-8,shadows:22,vignette:22,blur:0} },
+  { name:'Matte',     bg:'linear-gradient(135deg,#4a5848,#7a8870)',
+    vals:{exposure:5,brightness:15,contrast:-22,saturation:-12,temperature:12,tint:0,hue:0,highlights:12,shadows:52,vignette:0,blur:0} },
+  { name:'Neon',      bg:'linear-gradient(135deg,#4a1a88,#8844cc)',
+    vals:{exposure:0,brightness:0,contrast:30,saturation:80,temperature:-20,tint:20,hue:0,highlights:-20,shadows:15,vignette:40,blur:0} },
+  { name:'Golden Hr', bg:'linear-gradient(135deg,#8a4400,#d4831a)',
+    vals:{exposure:8,brightness:0,contrast:15,saturation:30,temperature:80,tint:10,hue:0,highlights:-10,shadows:15,vignette:15,blur:0} },
+];
+
+const grid = document.getElementById('presetGrid');
+PRESETS.forEach(p => {
+  const card = document.createElement('button');
+  card.className = 'preset-card';
+  card.dataset.name = p.name;
+  const bg = document.createElement('div');
+  bg.className = 'pc-bg';
+  bg.style.background = p.bg;
+  const label = document.createElement('span');
+  label.className = 'pc-name';
+  label.textContent = p.name;
+  card.appendChild(bg);
+  card.appendChild(label);
+  card.addEventListener('click', () => {
+    document.querySelectorAll('.preset-card').forEach(c => c.classList.remove('on'));
+    document.getElementById('presetNone').classList.remove('on');
+    card.classList.add('on');
+    applyPreset(p.vals);
+  });
+  grid.appendChild(card);
+});
+
+document.getElementById('presetNone').addEventListener('click', () => {
+  document.querySelectorAll('.preset-card').forEach(c => c.classList.remove('on'));
+  document.getElementById('presetNone').classList.add('on');
+  applyPreset({exposure:0,brightness:0,contrast:0,highlights:0,shadows:0,
+               saturation:0,temperature:0,tint:0,hue:0,vignette:0,blur:0});
+});
+
+function applyPreset(vals, duration = 400) {
+  const start  = performance.now();
+  const from   = {...A};
+  const target = {};
+  Object.keys(A).forEach(k => { target[k] = vals[k] !== undefined ? vals[k] : 0; });
+  function tick(now) {
+    const ease = 1 - Math.pow(1 - Math.min(1, (now - start) / duration), 3);
+    Object.keys(A).forEach(k => {
+      A[k] = from[k] + (target[k] - from[k]) * ease;
+      const sl = document.getElementById('s-' + k);
+      const vl = document.getElementById('v-' + k);
+      if (sl) sl.value = A[k];
+      if (vl) vl.textContent = Math.round(A[k]);
+    });
+    vigEl.style.opacity = A.vignette / 100;
+    applyFilter();
+    if (ease < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+// ── Filter ────────────────────────────────────────────────────────
+function buildFilter() {
+  const bri    = Math.max(0.01, 1 + (A.exposure + A.brightness) / 100);
+  const con    = Math.max(0,    1 + A.contrast   / 100);
+  const sat    = Math.max(0,    1 + A.saturation / 100);
+  const hilift = 1 + (A.highlights / 100) * 0.4;
+  const shcon  = 1 - (A.shadows    / 100) * 0.25;
+  const sepia  = A.temperature > 0 ? (A.temperature / 100) * 0.45 : 0;
+  const totalH = A.hue - (A.temperature * 0.1) + (A.tint * 0.15);
+  const parts  = [
+    `brightness(${(bri * hilift).toFixed(3)})`,
+    `contrast(${(con * shcon).toFixed(3)})`,
+    `saturate(${sat.toFixed(3)})`,
+    `sepia(${sepia.toFixed(3)})`,
+    `hue-rotate(${totalH.toFixed(1)}deg)`,
+  ];
+  if (A.blur > 0) parts.push(`blur(${(A.blur / 100 * 8).toFixed(2)}px)`);
+  return parts.join(' ');
+}
+function applyFilter() { vid.style.filter = buildFilter(); }
+
+// Sliders
+document.querySelectorAll('input[type=range][id^="s-"]').forEach(sl => {
+  const key = sl.id.slice(2);
+  if (key === 'drawSize' || key === 'drawOpacity') return; // handled above
+  sl.addEventListener('input', () => {
+    A[key] = parseFloat(sl.value);
+    document.getElementById('v-' + key).textContent = Math.round(A[key]);
+    if (key === 'vignette') vigEl.style.opacity = A[key] / 100;
+    else applyFilter();
+    document.querySelectorAll('.preset-card').forEach(c => c.classList.remove('on'));
+    document.getElementById('presetNone').classList.add('on');
+  });
+});
+
+resetBtn.addEventListener('click', () => {
+  Object.keys(A).forEach(k => { A[k] = 0; });
+  document.querySelectorAll('input[type=range][id^="s-"]').forEach(sl => {
+    if (sl.id === 's-drawSize' || sl.id === 's-drawOpacity') return;
+    sl.value = 0;
+    document.getElementById('v-' + sl.id.slice(2)).textContent = '0';
+  });
+  vigEl.style.opacity = 0;
+  applyFilter();
+  document.querySelectorAll('.preset-card').forEach(c => c.classList.remove('on'));
+  document.getElementById('presetNone').classList.add('on');
+});
+
+// ── Tabs ──────────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('on'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));
+    t.classList.add('on');
+    document.getElementById('p-' + t.dataset.t).classList.add('on');
+
+    drawTabOpen    = t.dataset.t === 'draw';
+    inspectTabOpen = t.dataset.t === 'inspect';
+    inspectTabVisible = inspectTabOpen;
+    drawCanvas.classList.toggle('draw-active', drawTabOpen);
+    cropOl.classList.toggle('on', t.dataset.t === 'crop' && loaded);
+    if (!inspectTabOpen) {
+      colorTip.style.display  = 'none';
+      loupeWrap.style.display = 'none';
+      stopHistogram();
+    } else if (loaded) {
+      startHistogram();
+      refreshMetadata();
+    }
+  });
+});
+
+// ── File loading ──────────────────────────────────────────────────
+const VIDEO_EXTS = /\.(mp4|mov|m4v|webm|mkv|avi|ogg|ogv|ts|mts|m2ts|3gp|flv|wmv)$/i;
+function loadFile(file) {
+  if (!file) return;
+  // Accept by MIME *or* by extension — some MP4s come in with weird MIME
+  // types (e.g. application/octet-stream from DVRs or old camcorders).
+  const okByType = file.type && file.type.startsWith('video/');
+  const okByExt  = file.name && VIDEO_EXTS.test(file.name);
+  if (!okByType && !okByExt) {
+    showToast(`Skipped: "${file.name}" doesn't look like a video file`);
+    return;
+  }
+  window._lastFileName = file.name || 'untitled';
+  vid.src = URL.createObjectURL(file);
+  vid.load();
+}
+
+vid.addEventListener('loadedmetadata', () => {
+  loaded = true;
+  dropZone.style.display = 'none';
+  vwrap.style.display    = 'block';
+  exportBtn.disabled    = false;
+  autoEnhBtn.disabled   = false;
+  aiEnhBtn.disabled     = false;
+  zoomHud.classList.add('visible');
+  enableStepButtons(true);
+  document.getElementById('detectBlurBtn').disabled = false;
+  document.getElementById('loupeToggle').disabled = false;
+  document.getElementById('bmPinBtn').disabled = false;
+  document.getElementById('edgeBtn').disabled = false;
+  document.getElementById('elaBtn').disabled = false;
+  document.getElementById('motAnalyzeBtn').disabled = false;
+  document.getElementById('motBookmarkBtn').disabled = true;
+  motionResult = null;
+  document.getElementById('mot-frames').textContent = '—';
+  document.getElementById('mot-spikes').textContent = '—';
+  document.getElementById('mot-pulse').textContent  = '—';
+  document.getElementById('mot-irr').textContent    = '—';
+  document.getElementById('mot-per').textContent    = '—';
+  document.getElementById('mot-jerk').textContent   = '—';
+  motCtx.fillStyle = '#000'; motCtx.fillRect(0, 0, motCanvas.width, motCanvas.height);
+  bookmarks = [];
+  renderBookmarks();
+  setFxMode('off');
+  setGridMode('off');
+  // Clear any leftover lasso from a previous video
+  lassoPath = null; lassoDrawing = false;
+  if (typeof stopLassoLoop === 'function') stopLassoLoop();
+  if (typeof drawLasso === 'function') drawLasso();
+  if (typeof updateLassoUI === 'function') updateLassoUI();
+  prevFrameData = null;
+  reportBtn.disabled = true; // re-enabled when bookmarks added
+  colorTmpCanvas = null; // reset color sample canvas on new video
+  startFPSDetection();
+  fitVideo();
+  refreshMetadata();
+  updateTimecode();
+  if (inspectTabVisible) startHistogram();
+  crop = {x:0, y:0, w:100, h:100};
+  updateCropBox();
+  updateCropInputs();
+});
+
+function fitVideo() {
+  const r  = preview.getBoundingClientRect();
+  const vr = vid.videoWidth / vid.videoHeight;
+  const ar = r.width / r.height;
+  let w, h;
+  if (vr > ar) { w = r.width;  h = w / vr; }
+  else          { h = r.height; w = h * vr; }
+  vid.style.width    = w + 'px';
+  vid.style.height   = h + 'px';
+  vwrap.style.width  = w + 'px';
+  vwrap.style.height = h + 'px';
+  // Center the absolutely-positioned vwrap within preview
+  zoom = 1;
+  panX = (r.width  - w) / 2;
+  panY = (r.height - h) / 2;
+  applyViewTransform();
+  updateCropBox();
+  resizeDrawCanvas();
+}
+
+// ── Zoom / pan functions ──────────────────────────────────────────
+function applyViewTransform() {
+  vwrap.style.transform = `translate(${panX}px,${panY}px) scale(${zoom})`;
+  const pct = Math.round(zoom * 100);
+  zoomDisp.textContent = pct + '%';
+}
+
+// Zoom centered on a screen-space point (cursor or preview center)
+function zoomAt(screenX, screenY, newZoom) {
+  const r  = preview.getBoundingClientRect();
+  const rx = screenX - r.left;   // position within preview
+  const ry = screenY - r.top;
+  // Content-space point under cursor before zoom change
+  const cx = (rx - panX) / zoom;
+  const cy = (ry - panY) / zoom;
+  zoom = Math.max(0.05, Math.min(20, newZoom));
+  // Keep that content point fixed under cursor
+  panX = rx - cx * zoom;
+  panY = ry - cy * zoom;
+  applyViewTransform();
+}
+
+function zoomToFit() {
+  const r = preview.getBoundingClientRect();
+  const {w, h} = vSize();
+  zoom = 1;
+  panX = (r.width  - w) / 2;
+  panY = (r.height - h) / 2;
+  applyViewTransform();
+}
+
+function zoomToActual() {
+  const r = preview.getBoundingClientRect();
+  const {w, h} = vSize();
+  // Center at 100%
+  const cx = r.left + r.width  / 2;
+  const cy = r.top  + r.height / 2;
+  zoomAt(cx, cy, 1);
+}
+
+function nextLevel(dir) {
+  if (dir > 0) return ZOOM_LEVELS.find(z => z > zoom + 0.001) ?? ZOOM_LEVELS.at(-1);
+  return [...ZOOM_LEVELS].reverse().find(z => z < zoom - 0.001) ?? ZOOM_LEVELS[0];
+}
+
+function zoomStep(dir) {
+  const r  = preview.getBoundingClientRect();
+  const cx = r.left + r.width  / 2;
+  const cy = r.top  + r.height / 2;
+  zoomAt(cx, cy, nextLevel(dir));
+}
+
+// ── Zoom HUD buttons ──────────────────────────────────────────────
+document.getElementById('zoomIn') .addEventListener('click', () => zoomStep(1));
+document.getElementById('zoomOut').addEventListener('click', () => zoomStep(-1));
+zoomDisp.addEventListener('click', () => loaded && zoomToFit());
+
+// ── Wheel: Ctrl/Cmd+scroll = zoom, plain scroll = pan ────────────
+preview.addEventListener('wheel', e => {
+  if (!loaded) return;
+  e.preventDefault();
+  if (e.ctrlKey || e.metaKey) {
+    // Figma: trackpad pinch also fires as wheel+ctrlKey
+    const newZoom = zoom * Math.pow(2, -e.deltaY / 300);
+    zoomAt(e.clientX, e.clientY, newZoom);
+  } else {
+    panX -= e.deltaX;
+    panY -= e.deltaY;
+    applyViewTransform();
+  }
+}, { passive: false });
+
+openBtn.addEventListener('click',  () => fileIn.click());
+dropZone.addEventListener('click', () => fileIn.click());
+fileIn.addEventListener('change',  e => loadFile(e.target.files[0]));
+preview.addEventListener('dragover',  e => { e.preventDefault(); preview.classList.add('drag-over'); });
+preview.addEventListener('dragleave', () => preview.classList.remove('drag-over'));
+preview.addEventListener('drop',      e => {
+  e.preventDefault(); preview.classList.remove('drag-over');
+  loadFile(e.dataTransfer.files[0]);
+});
+window.addEventListener('resize', () => { if (loaded) fitVideo(); });
+
+// ── Playback ──────────────────────────────────────────────────────
+function setPlaying(on) {
+  playBtn.classList.toggle('playing', on);
+  playBtn.setAttribute('aria-label', on ? 'Pause' : 'Play');
+}
+function togglePlayback() {
+  if (vid.paused) { vid.play(); setPlaying(true); }
+  else            { vid.pause(); setPlaying(false); }
+}
+playBtn.addEventListener('click', togglePlayback);
+vid.addEventListener('click', e => {
+  // Don't fire if the click was actually the end of a pan drag
+  if (!isPanning) togglePlayback();
+});
+vid.addEventListener('ended', () => setPlaying(false));
+
+function fmt(s) {
+  return `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+}
+vid.addEventListener('timeupdate', () => {
+  const p = vid.duration ? vid.currentTime / vid.duration : 0;
+  tprog.style.width = (p * 100) + '%';
+  tthumb.style.left = (p * 100) + '%';
+  tdisp.textContent = `${fmt(vid.currentTime)} / ${fmt(vid.duration || 0)}`;
+  updateFrameDisp();
+  updateTimecode();
+});
+tline.addEventListener('click', e => {
+  if (!vid.duration) return;
+  const r = tline.getBoundingClientRect();
+  vid.currentTime = ((e.clientX - r.left) / r.width) * vid.duration;
+});
+volR.addEventListener('input', () => { vid.volume = parseFloat(volR.value); });
+
+speedInput.addEventListener('change', () => {
+  const v = parseFloat(speedInput.value);
+  if (!isNaN(v) && v >= 0.1 && v <= 80) {
+    vid.playbackRate = v;
+    speedInput.value = v;
+  } else {
+    speedInput.value = vid.playbackRate;
+  }
+});
+// Arrow keys adjust speed by 0.05 while focused
+speedInput.addEventListener('keydown', e => {
+  if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+    e.preventDefault();
+    const dir = e.key === 'ArrowUp' ? 1 : -1;
+    const next = Math.round((vid.playbackRate + dir * 0.05) * 100) / 100;
+    const clamped = Math.max(0.1, Math.min(80, next));
+    vid.playbackRate = clamped;
+    speedInput.value = clamped;
+  }
+});
+
+document.addEventListener('keydown', e => {
+  const inInput = e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT';
+  // While help modal is open, swallow all playback/zoom shortcuts —
+  // the user is reading, not driving, and Key Tutor expects to demo keys.
+  const helpOpen = document.getElementById('helpModal')?.classList.contains('open');
+
+  // Zoom shortcuts (always active when video loaded, even in inputs)
+  if ((e.metaKey || e.ctrlKey) && loaded && !helpOpen) {
+    if (e.key === '=' || e.key === '+') { e.preventDefault(); zoomStep(1);  return; }
+    if (e.key === '-')                  { e.preventDefault(); zoomStep(-1); return; }
+    if (e.key === '0')                  { e.preventDefault(); zoomToFit();  return; }
+    if (e.key === '1')                  { e.preventDefault(); zoomToActual(); return; }
+  }
+
+  if (helpOpen) return;
+
+  // Space always plays/pauses — even if a button is focused.
+  // Without this, clicking any tool button leaves focus on it and Space
+  // activates that button instead of toggling playback.
+  if (e.code === 'Space' && !inInput) {
+    e.preventDefault();
+    e.stopPropagation();
+    // Blur whatever has focus so this isn't taken twice
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    togglePlayback();
+    return;
+  }
+
+  if (inInput) return;
+
+  if (e.code === 'ArrowLeft')  vid.currentTime = Math.max(0, vid.currentTime - 5);
+  if (e.code === 'ArrowRight') vid.currentTime = Math.min(vid.duration || 0, vid.currentTime + 5);
+  if (e.key === ',') stepFrame(-1);
+  if (e.key === '.') stepFrame(1);
+  if (e.key === 'b' || e.key === 'B') addBookmark();
+
+  // Draw undo
+  if (e.code === 'KeyZ' && (e.metaKey || e.ctrlKey) && drawTabOpen) {
+    e.preventDefault();
+    document.getElementById('undoBtn').click();
+  }
+});
+
+// (space keyup no longer needed — pan uses middle-click only)
+
+// ── Space+drag / middle-click pan ────────────────────────────────
+preview.addEventListener('mousedown', e => {
+  if (!loaded) return;
+  if (e.button === 1) { // middle-click to pan
+    e.preventDefault();
+    isPanning = true;
+    panSX  = e.clientX; panSY  = e.clientY;
+    panSPX = panX;      panSPY = panY;
+    preview.classList.add('panning');
+  }
+});
+
+document.addEventListener('mousemove', e => {
+  if (!isPanning) return;
+  panX = panSPX + (e.clientX - panSX);
+  panY = panSPY + (e.clientY - panSY);
+  applyViewTransform();
+});
+
+document.addEventListener('mouseup', e => {
+  if (isPanning) {
+    isPanning = false;
+    preview.classList.remove('panning');
+  }
+});
+
+// ── Crop ──────────────────────────────────────────────────────────
+function vSize() {
+  return { w: parseFloat(vwrap.style.width)  || vwrap.offsetWidth,
+           h: parseFloat(vwrap.style.height) || vwrap.offsetHeight };
+}
+function updateCropBox() {
+  const {w,h} = vSize();
+  cbox.style.left   = (crop.x / 100 * w) + 'px';
+  cbox.style.top    = (crop.y / 100 * h) + 'px';
+  cbox.style.width  = (crop.w / 100 * w) + 'px';
+  cbox.style.height = (crop.h / 100 * h) + 'px';
+}
+function updateCropInputs() {
+  document.getElementById('cx').value = Math.round(crop.x / 100 * vid.videoWidth);
+  document.getElementById('cy').value = Math.round(crop.y / 100 * vid.videoHeight);
+  document.getElementById('cw').value = Math.round(crop.w / 100 * vid.videoWidth);
+  document.getElementById('ch').value = Math.round(crop.h / 100 * vid.videoHeight);
+}
+
+document.querySelectorAll('.ratio-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.ratio-btn').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    cropRatio = btn.dataset.r;
+    if (cropRatio !== 'free') {
+      const [aw,ah] = cropRatio.split(':').map(Number);
+      const tar = aw / ah;
+      const {w:dw,h:dh} = vSize();
+      let cw, ch;
+      if (tar > dw/dh) { cw=100; ch=(dw/tar/dh)*100; }
+      else             { ch=100; cw=(dh*tar/dw)*100; }
+      crop = {x:(100-cw)/2, y:(100-ch)/2, w:cw, h:ch};
+      updateCropBox(); updateCropInputs();
+    }
+  });
+});
+
+document.getElementById('cropReset').addEventListener('click', () => {
+  crop = {x:0,y:0,w:100,h:100}; cropRatio='free';
+  document.querySelectorAll('.ratio-btn').forEach(b => b.classList.remove('on'));
+  document.querySelector('.ratio-btn[data-r="free"]').classList.add('on');
+  updateCropBox(); updateCropInputs();
+});
+document.getElementById('cropApply').addEventListener('click', () => {
+  const b = document.getElementById('cropApply');
+  b.textContent = 'Applied ✓';
+  setTimeout(() => { b.textContent = 'Apply'; }, 1200);
+});
+
+let drag = null;
+cbox.addEventListener('mousedown', e => {
+  e.preventDefault(); e.stopPropagation();
+  const {w,h} = vSize();
+  drag = { handle:e.target.dataset.h || 'move',
+           sx:e.clientX, sy:e.clientY, sc:{...crop}, vw:w, vh:h };
+});
+document.addEventListener('mousemove', e => {
+  if (!drag) return;
+  const dx = (e.clientX - drag.sx) / drag.vw * 100;
+  const dy = (e.clientY - drag.sy) / drag.vh * 100;
+  let {x,y,w,h} = drag.sc;
+  const t = drag.handle;
+  if (t === 'move') {
+    x = clamp(x+dx, 0, 100-w); y = clamp(y+dy, 0, 100-h);
+  } else {
+    if (t.includes('e')) w = clamp(drag.sc.w+dx, 4, 100-x);
+    if (t.includes('s')) h = clamp(drag.sc.h+dy, 4, 100-y);
+    if (t.includes('w')) { const d=clamp(dx,-(drag.sc.w-4),drag.sc.x); x=drag.sc.x+d; w=drag.sc.w-d; }
+    if (t.includes('n')) { const d=clamp(dy,-(drag.sc.h-4),drag.sc.y); y=drag.sc.y+d; h=drag.sc.h-d; }
+    if (cropRatio !== 'free') {
+      const [aw,ah] = cropRatio.split(':').map(Number);
+      const {w:vw,h:vh} = vSize();
+      if (t.includes('e')||t.includes('w')) h = (w/100*vw)/(aw/ah)/vh*100;
+      else w = (h/100*vh)*(aw/ah)/vw*100;
+    }
+  }
+  crop = {x:clamp(x,0,100), y:clamp(y,0,100), w:clamp(w,2,100), h:clamp(h,2,100)};
+  updateCropBox(); updateCropInputs();
+});
+document.addEventListener('mouseup', () => { drag = null; });
+function clamp(v,lo,hi) { return Math.max(lo, Math.min(hi, v)); }
+
+// ── Toast ─────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), 3200);
+}
+
+// ── Auto Enhance ──────────────────────────────────────────────────
+autoEnhBtn.addEventListener('click', () => {
+  if (!loaded) return;
+  const tmp = document.createElement('canvas');
+  const sc  = Math.min(1, 160 / vid.videoWidth);
+  tmp.width  = Math.round(vid.videoWidth  * sc);
+  tmp.height = Math.round(vid.videoHeight * sc);
+  tmp.getContext('2d').drawImage(vid, 0, 0, tmp.width, tmp.height);
+  const {data} = tmp.getContext('2d').getImageData(0, 0, tmp.width, tmp.height);
+  const n = data.length / 4;
+  let rS=0,gS=0,bS=0,lS=0,l2S=0;
+  for (let i=0; i<data.length; i+=4) {
+    const l = 0.299*data[i] + 0.587*data[i+1] + 0.114*data[i+2];
+    rS+=data[i]; gS+=data[i+1]; bS+=data[i+2]; lS+=l; l2S+=l*l;
+  }
+  const aR=rS/n, aG=gS/n, aB=bS/n, aL=lS/n;
+  const stdL = Math.sqrt(Math.max(0, l2S/n - aL*aL));
+  const avg3 = (aR+aG+aB)/3 || 1;
+  const expD  = clamp(Math.round((118 - aL) / 2.56 * 0.65), -55, 60);
+  const conD  = clamp(Math.round((55 - stdL) / 128 * 60), -15, 50);
+  const tempD = clamp(Math.round(-(aR-aB) / avg3 * 28), -45, 45);
+  const tintD = clamp(Math.round(((aR+aB)/2-aG) / avg3 * 18), -25, 25);
+  const sat   = (Math.max(aR,aG,aB)-Math.min(aR,aG,aB)) / (Math.max(aR,aG,aB)||1);
+  const satD  = clamp(Math.round(sat<0.2 ? (0.2-sat)*130 : 0), 0, 35);
+  applyPreset({...A, exposure:expD, contrast:conD, temperature:tempD, tint:tintD, saturation:satD});
+  const parts = [];
+  if (Math.abs(expD)>2)  parts.push(`Exp ${expD>0?'+':''}${expD}`);
+  if (Math.abs(conD)>2)  parts.push(`Con +${conD}`);
+  if (Math.abs(tempD)>2) parts.push(`Temp ${tempD>0?'+':''}${tempD}`);
+  if (satD>2)            parts.push(`Sat +${satD}`);
+  showToast(parts.length ? 'Auto: ' + parts.join('  ') : 'Frame looks well-balanced');
+});
+
+// ── HF AI ─────────────────────────────────────────────────────────
+aiEnhBtn.addEventListener('click',  () => aiBox.classList.toggle('open'));
+document.getElementById('closeAIBtn').addEventListener('click', () => aiBox.classList.remove('open'));
+
+document.getElementById('runHFBtn').addEventListener('click', async () => {
+  const token = document.getElementById('hfToken').value.trim();
+  const model = document.getElementById('hfModel').value;
+  if (!token) { showToast('Enter your HF API token first'); return; }
+  const btn = document.getElementById('runHFBtn');
+  btn.disabled = true; btn.textContent = 'Running…';
+  const tmp = document.createElement('canvas');
+  tmp.width = vid.videoWidth; tmp.height = vid.videoHeight;
+  tmp.getContext('2d').drawImage(vid, 0, 0);
+  const origURL = tmp.toDataURL('image/png');
+  const blob    = await new Promise(res => tmp.toBlob(res, 'image/png'));
+  try {
+    const resp = await fetch(`https://api-inference.huggingface.co/models/${model}`,
+      { method:'POST', headers:{Authorization:`Bearer ${token}`}, body:blob });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${resp.status}`);
+    }
+    const enhURL = URL.createObjectURL(await resp.blob());
+    document.getElementById('compareOrig').src     = origURL;
+    document.getElementById('compareEnhanced').src = enhURL;
+    document.getElementById('compareModal').classList.add('open');
+  } catch(e) {
+    showToast('HF error: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Run on Frame';
+  }
+});
+
+document.getElementById('compareClose').addEventListener('click', () => {
+  document.getElementById('compareModal').classList.remove('open');
+  const s = document.getElementById('compareEnhanced').src;
+  if (s.startsWith('blob:')) URL.revokeObjectURL(s);
+  document.getElementById('compareEnhanced').src = '';
+});
+
+// ── Export ────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════
+// ── FORENSIC TOOLS ───────────────────────────────────────
+// ════════════════════════════════════════════════════════
+
+// ── Frame stepping ────────────────────────────────────────
+let estimatedFPS = 30;
+
+function enableStepButtons(on) {
+  ['stepBack','stepFwd','stepBackBar','stepFwdBar'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = !on;
+  });
+}
+
+// Estimate real fps by watching requestVideoFrameCallback timestamps
+function startFPSDetection() {
+  if (!('requestVideoFrameCallback' in HTMLVideoElement.prototype)) return;
+  let prev = null, samples = 0;
+  function cb(_, meta) {
+    if (prev !== null) {
+      const delta = meta.mediaTime - prev;
+      if (delta > 0 && delta < 0.5) {
+        estimatedFPS = Math.round(1 / delta);
+        samples++;
+      }
+    }
+    prev = meta.mediaTime;
+    if (samples < 8) vid.requestVideoFrameCallback(cb);
+  }
+  vid.requestVideoFrameCallback(cb);
+}
+
+function stepFrame(dir) {
+  if (!loaded) return;
+  vid.pause(); setPlaying(false);
+  vid.currentTime = Math.max(0, Math.min(vid.duration || 0,
+    vid.currentTime + dir / estimatedFPS));
+}
+
+function updateFrameDisp() {
+  const f = Math.round(vid.currentTime * estimatedFPS);
+  const tot = vid.duration ? Math.round(vid.duration * estimatedFPS) : '?';
+  const el = document.getElementById('frameDisp');
+  if (el) el.textContent = `F ${f} / ${tot}`;
+}
+
+['stepBack','stepBackBar'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('click', () => stepFrame(-1));
+});
+['stepFwd','stepFwdBar'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('click', () => stepFrame(1));
+});
+
+document.getElementById('s-blurSens').addEventListener('input', e => {
+  document.getElementById('v-blurSens').textContent = e.target.value;
+});
+
+// ── Loupe ─────────────────────────────────────────────────
+const loupeWrap = document.getElementById('loupeWrap');
+const loupeCanvas = document.getElementById('loupeCanvas');
+const lctx = loupeCanvas.getContext('2d');
+let loupeActive = false;
+let loupeZoom = 5;
+
+document.getElementById('loupeToggle').addEventListener('click', () => {
+  loupeActive = !loupeActive;
+  document.getElementById('loupeToggle').textContent = loupeActive ? 'Loupe On' : 'Loupe Off';
+  document.getElementById('loupeToggle').className = loupeActive
+    ? 'btn btn-accent' : 'btn btn-ghost';
+  if (!loupeActive) loupeWrap.style.display = 'none';
+});
+
+document.getElementById('s-loupeZoom').addEventListener('input', e => {
+  loupeZoom = parseInt(e.target.value);
+  document.getElementById('v-loupeZoom').textContent = loupeZoom;
+});
+
+function drawLoupe(screenX, screenY) {
+  if (!loupeActive || !loaded) return;
+  const pr = preview.getBoundingClientRect();
+  const {w, h} = vSize();
+  const cx = (screenX - pr.left - panX) / zoom;
+  const cy = (screenY - pr.top  - panY) / zoom;
+  const vx = cx / w * vid.videoWidth;
+  const vy = cy / h * vid.videoHeight;
+  const S = 160; // loupe canvas size
+  const capW = (S / loupeZoom) * (vid.videoWidth  / w);
+  const capH = (S / loupeZoom) * (vid.videoHeight / h);
+  const sx = Math.max(0, vx - capW/2);
+  const sy = Math.max(0, vy - capH/2);
+
+  lctx.clearRect(0, 0, S, S);
+  lctx.save();
+  lctx.beginPath();
+  lctx.arc(S/2, S/2, S/2 - 1, 0, Math.PI*2);
+  lctx.clip();
+  lctx.drawImage(vid, sx, sy, capW, capH, 0, 0, S, S);
+  // crosshair
+  lctx.strokeStyle = 'rgba(255,255,255,0.55)';
+  lctx.lineWidth = 1;
+  lctx.beginPath();
+  lctx.moveTo(S/2, S/2 - 12); lctx.lineTo(S/2, S/2 + 12);
+  lctx.moveTo(S/2 - 12, S/2); lctx.lineTo(S/2 + 12, S/2);
+  lctx.stroke();
+  lctx.restore();
+  // ring
+  lctx.beginPath();
+  lctx.arc(S/2, S/2, S/2 - 1, 0, Math.PI*2);
+  lctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  lctx.lineWidth = 1.5;
+  lctx.stroke();
+
+  // Position: right of cursor, flip if near edge
+  const margin = 18;
+  let lx = screenX - pr.left + margin;
+  let ly = screenY - pr.top  - S/2;
+  if (lx + S > pr.width  - margin) lx = screenX - pr.left - S - margin;
+  ly = Math.max(margin, Math.min(pr.height - S - margin, ly));
+  loupeWrap.style.left    = lx + 'px';
+  loupeWrap.style.top     = ly + 'px';
+  loupeWrap.style.display = 'block';
+}
+
+// ── Color picker ──────────────────────────────────────────
+const colorTip    = document.getElementById('colorTip');
+const ctipSwatch  = document.getElementById('ctipSwatch');
+const ctipHex     = document.getElementById('ctipHex');
+const ctipRGB     = document.getElementById('ctipRGB');
+const crSwatch    = document.getElementById('crSwatch');
+const crHex       = document.getElementById('crHex');
+const crRGB       = document.getElementById('crRGB');
+const colorHist   = document.getElementById('colorHist');
+let colorPickerActive = false; // show tooltip on hover when inspect tab open
+let capturedColors = [];
+let colorTmpCanvas = null; // reuse canvas for perf
+
+function sampleColor(screenX, screenY) {
+  if (!loaded) return null;
+  const pr = preview.getBoundingClientRect();
+  const {w, h} = vSize();
+  const cx = (screenX - pr.left - panX) / zoom;
+  const cy = (screenY - pr.top  - panY) / zoom;
+  const vx = Math.round(Math.max(0, Math.min(vid.videoWidth  - 1, cx / w * vid.videoWidth)));
+  const vy = Math.round(Math.max(0, Math.min(vid.videoHeight - 1, cy / h * vid.videoHeight)));
+  if (!colorTmpCanvas) {
+    colorTmpCanvas = document.createElement('canvas');
+    colorTmpCanvas.width  = vid.videoWidth;
+    colorTmpCanvas.height = vid.videoHeight;
+  }
+  const ctx2 = colorTmpCanvas.getContext('2d');
+  ctx2.drawImage(vid, 0, 0);
+  const [r, g, b] = ctx2.getImageData(vx, vy, 1, 1).data;
+  const hex = '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('');
+  const hsl = rgbToHsl(r, g, b);
+  return { r, g, b, hex, hsl };
+}
+
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r,g,b), min = Math.min(r,g,b);
+  let h, s, l = (max+min)/2;
+  if (max === min) { h = s = 0; }
+  else {
+    const d = max - min;
+    s = l > 0.5 ? d/(2-max-min) : d/(max+min);
+    switch(max) {
+      case r: h = ((g-b)/d + (g<b?6:0))/6; break;
+      case g: h = ((b-r)/d + 2)/6;          break;
+      default:h = ((r-g)/d + 4)/6;
+    }
+  }
+  return { h:Math.round(h*360), s:Math.round(s*100), l:Math.round(l*100) };
+}
+
+function showColorTip(col, screenX, screenY) {
+  const pr = preview.getBoundingClientRect();
+  ctipSwatch.style.background = col.hex;
+  ctipHex.textContent = col.hex.toUpperCase();
+  ctipRGB.textContent = `R:${col.r} G:${col.g} B:${col.b}`;
+  colorTip.style.display = 'flex';
+  // Update sidebar readout too
+  crSwatch.style.background = col.hex;
+  crHex.textContent = col.hex.toUpperCase();
+  crRGB.textContent = `R:${col.r} G:${col.g} B:${col.b} · HSL:${col.hsl.h}° ${col.hsl.s}% ${col.hsl.l}%`;
+  // Position tip above-right of cursor
+  let tx = screenX - pr.left + 14;
+  let ty = screenY - pr.top  - 52;
+  if (tx + 180 > pr.width)  tx = screenX - pr.left - 194;
+  if (ty < 0) ty = screenY - pr.top + 14;
+  colorTip.style.left = tx + 'px';
+  colorTip.style.top  = ty + 'px';
+}
+
+function pinColor(col) {
+  capturedColors.unshift(col);
+  if (capturedColors.length > 16) capturedColors.pop();
+  renderColorHistory();
+}
+
+function renderColorHistory() {
+  colorHist.innerHTML = '';
+  capturedColors.forEach(c => {
+    const chip = document.createElement('div');
+    chip.className = 'chip';
+    chip.style.background = c.hex;
+    chip.title = `${c.hex.toUpperCase()}  R:${c.r} G:${c.g} B:${c.b}`;
+    chip.addEventListener('click', () => {
+      crSwatch.style.background = c.hex;
+      crHex.textContent = c.hex.toUpperCase();
+      crRGB.textContent = `R:${c.r} G:${c.g} B:${c.b}`;
+    });
+    colorHist.appendChild(chip);
+  });
+}
+
+// ── Bookmarks ────────────────────────────────────────────
+let bookmarks = []; // {id, time, frame, label}
+let bmIdSeq = 0;
+const bmPinBtn = document.getElementById('bmPinBtn');
+const bmList   = document.getElementById('bmList');
+const bmEmpty  = document.getElementById('bmEmpty');
+const tlineMarks = document.getElementById('tlineMarks');
+
+function addBookmark() {
+  if (!loaded) return;
+  const t = vid.currentTime;
+  if (bookmarks.some(b => Math.abs(b.time - t) < (1 / estimatedFPS) * 0.5)) return;
+  const frame = Math.round(t * estimatedFPS);
+  bookmarks.push({ id: ++bmIdSeq, time: t, frame, label: '' });
+  bookmarks.sort((a, b) => a.time - b.time);
+  renderBookmarks();
+  syncReportBtn();
+}
+
+function removeBookmark(id) {
+  bookmarks = bookmarks.filter(b => b.id !== id);
+  renderBookmarks();
+  syncReportBtn();
+}
+
+function syncReportBtn() {
+  const rb = document.getElementById('reportBtn');
+  if (rb) rb.disabled = !loaded || bookmarks.length === 0;
+}
+
+function seekToBookmark(id) {
+  const b = bookmarks.find(b => b.id === id);
+  if (b) vid.currentTime = b.time;
+}
+
+function renderBookmarks() {
+  bmList.replaceChildren();
+  bmEmpty.style.display = bookmarks.length === 0 ? 'block' : 'none';
+  bookmarks.forEach(b => {
+    const row = document.createElement('div');
+    row.className = 'bm-row';
+
+    const time = document.createElement('span');
+    time.className = 'bm-time';
+    time.textContent = `${fmt(b.time)} · F${b.frame}`;
+    time.title = 'Click to seek';
+    time.addEventListener('click', () => seekToBookmark(b.id));
+
+    const lbl = document.createElement('input');
+    lbl.type = 'text';
+    lbl.className = 'bm-label';
+    lbl.placeholder = 'add note…';
+    lbl.value = b.label;
+    lbl.addEventListener('input', () => {
+      b.label = lbl.value;
+      if (b._pin) b._pin.title = b.label ? `${fmt(b.time)} — ${b.label}` : fmt(b.time);
+    });
+
+    const del = document.createElement('button');
+    del.className = 'bm-del';
+    del.textContent = '×';
+    del.title = 'Delete';
+    del.addEventListener('click', () => removeBookmark(b.id));
+
+    row.append(time, lbl, del);
+    bmList.appendChild(row);
+  });
+
+  tlineMarks.replaceChildren();
+  if (!vid.duration) return;
+  bookmarks.forEach(b => {
+    const m = document.createElement('div');
+    m.className = 'pin-mark';
+    m.style.left = (b.time / vid.duration * 100) + '%';
+    m.title = b.label ? `${fmt(b.time)} — ${b.label}` : fmt(b.time);
+    m.addEventListener('click', e => {
+      e.stopPropagation();
+      seekToBookmark(b.id);
+    });
+    tlineMarks.appendChild(m);
+    b._pin = m;
+  });
+}
+
+bmPinBtn.addEventListener('click', addBookmark);
+
+// ── FX overlays (clipping / false color / frame diff / edges / ELA) ──
+let liveFx = 'off';          // 'off' | 'clip' | 'false' | 'diff'
+let fxRafId = null;
+let prevFrameData = null;    // for frame diff
+const fxModeBtns = document.querySelectorAll('.mode-btn[data-fx]');
+const gridModeBtns = document.querySelectorAll('.mode-btn[data-grid]');
+const edgeBtn  = document.getElementById('edgeBtn');
+const elaBtn   = document.getElementById('elaBtn');
+const clearFxBtn = document.getElementById('clearFxBtn');
+
+function setFxMode(mode) {
+  liveFx = mode;
+  fxModeBtns.forEach(b => b.classList.toggle('on', b.dataset.fx === mode));
+  // Off-or-not-live clears the canvas (one-shot results also live here but use separate path)
+  if (mode === 'off') {
+    stopFx();
+    fctx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
+    prevFrameData = null;
+  } else {
+    startFx();
+  }
+  updateClearFxState();
+}
+
+function startFx() {
+  if (fxRafId != null) return;
+  const loop = () => {
+    if (liveFx === 'off') { fxRafId = null; return; }
+    tickFx();
+    fxRafId = requestAnimationFrame(loop);
+  };
+  fxRafId = requestAnimationFrame(loop);
+}
+
+function stopFx() {
+  if (fxRafId != null) cancelAnimationFrame(fxRafId);
+  fxRafId = null;
+}
+
+// Sample the current video frame at fxCanvas size, return ImageData (or null)
+function sampleFrame() {
+  if (!loaded || !vid.videoWidth) return null;
+  const w = fxCanvas.width, h = fxCanvas.height;
+  fctx.drawImage(vid, 0, 0, w, h);
+  return fctx.getImageData(0, 0, w, h);
+}
+
+function tickFx(force = false) {
+  if (!loaded || !vid.videoWidth) return;
+  const w = fxCanvas.width, h = fxCanvas.height;
+  if (liveFx === 'clip') {
+    const img = sampleFrame(); if (!img) return;
+    const d = img.data;
+    // Replace pixels: blown -> red, crushed -> blue, else transparent
+    for (let i = 0; i < d.length; i += 4) {
+      const r = d[i], g = d[i+1], b = d[i+2];
+      if (r > 250 || g > 250 || b > 250) {
+        d[i] = 255; d[i+1] = 40; d[i+2] = 40; d[i+3] = 220;
+      } else if (r < 5 && g < 5 && b < 5) {
+        d[i] = 60; d[i+1] = 90; d[i+2] = 255; d[i+3] = 220;
+      } else {
+        d[i+3] = 0;
+      }
+    }
+    fctx.putImageData(img, 0, 0);
+  } else if (liveFx === 'false') {
+    const img = sampleFrame(); if (!img) return;
+    const d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const y = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+      // 6-stop false-color: purple → blue → cyan → green → yellow → red → white
+      const t = y / 255;
+      let R, G, B;
+      if      (t < 1/6) { const k = t*6;       R = 60 + (0-60)*k;    G = 0;              B = 90 + (200-90)*k; }
+      else if (t < 2/6) { const k = (t-1/6)*6; R = 0;                G = 100*k;          B = 200 + (255-200)*k; }
+      else if (t < 3/6) { const k = (t-2/6)*6; R = 0;                G = 100 + (200-100)*k; B = 255 + (180-255)*k; }
+      else if (t < 4/6) { const k = (t-3/6)*6; R = 200*k;            G = 200 + (255-200)*k; B = 180 + (0-180)*k; }
+      else if (t < 5/6) { const k = (t-4/6)*6; R = 200 + (255-200)*k; G = 255 + (60-255)*k;  B = 0; }
+      else              { const k = (t-5/6)*6; R = 255;              G = 60 + (255-60)*k;   B = 0 + 255*k; }
+      d[i] = R; d[i+1] = G; d[i+2] = B; d[i+3] = 230;
+    }
+    fctx.putImageData(img, 0, 0);
+  } else if (liveFx === 'diff') {
+    const img = sampleFrame(); if (!img) return;
+    const d = img.data;
+    if (prevFrameData && prevFrameData.length === d.length) {
+      for (let i = 0; i < d.length; i += 4) {
+        const dr = Math.abs(d[i]   - prevFrameData[i]);
+        const dg = Math.abs(d[i+1] - prevFrameData[i+1]);
+        const db = Math.abs(d[i+2] - prevFrameData[i+2]);
+        const m = Math.max(dr, dg, db);
+        if (m > 12) {
+          // amplify & tint green where motion
+          d[i] = 30; d[i+1] = Math.min(255, m * 3); d[i+2] = 30; d[i+3] = 200;
+        } else {
+          d[i+3] = 0;
+        }
+      }
+      fctx.putImageData(img, 0, 0);
+    } else {
+      fctx.clearRect(0, 0, w, h);
+    }
+    // store for next tick
+    prevFrameData = new Uint8ClampedArray(sampleFrame().data);
+  }
+}
+
+fxModeBtns.forEach(b => b.addEventListener('click', () => {
+  if (!loaded) return;
+  setFxMode(b.dataset.fx);
+}));
+
+// Grid overlays
+const gridOl    = document.getElementById('gridOl');
+const gridCross = document.getElementById('gridCross');
+const safeOl    = document.getElementById('safeOl');
+let gridMode = 'off';
+function setGridMode(m) {
+  gridMode = m;
+  gridOl.classList.toggle('on', m === 'thirds');
+  gridOl.classList.toggle('thirds', m === 'thirds');
+  gridCross.classList.toggle('on', m === 'cross');
+  safeOl.classList.toggle('on', m === 'safe');
+  gridModeBtns.forEach(b => b.classList.toggle('on', b.dataset.grid === m));
+}
+gridModeBtns.forEach(b => b.addEventListener('click', () => setGridMode(b.dataset.grid)));
+
+// Sobel edge detection (one-shot)
+function detectEdges() {
+  if (!loaded) return;
+  const img = sampleFrame(); if (!img) return;
+  const w = img.width, h = img.height;
+  const src = img.data;
+  // luminance buffer
+  const lum = new Float32Array(w * h);
+  for (let i = 0, p = 0; i < src.length; i += 4, p++) {
+    lum[p] = 0.299*src[i] + 0.587*src[i+1] + 0.114*src[i+2];
+  }
+  const out = fctx.createImageData(w, h);
+  const o = out.data;
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const p = y * w + x;
+      const gx = -lum[p-w-1] - 2*lum[p-1] - lum[p+w-1]
+                 +lum[p-w+1] + 2*lum[p+1] + lum[p+w+1];
+      const gy = -lum[p-w-1] - 2*lum[p-w] - lum[p-w+1]
+                 +lum[p+w-1] + 2*lum[p+w] + lum[p+w+1];
+      const m = Math.min(255, Math.hypot(gx, gy));
+      const i4 = p * 4;
+      if (m > 30) {
+        o[i4] = 80; o[i4+1] = 255; o[i4+2] = 200; o[i4+3] = Math.min(230, m * 1.4);
+      }
+    }
+  }
+  fctx.putImageData(out, 0, 0);
+  endLiveFx(); // stop live tick without clearing
+  updateClearFxState();
+}
+
+function endLiveFx() {
+  liveFx = 'off';
+  stopFx();
+  prevFrameData = null;
+  fxModeBtns.forEach(b => b.classList.toggle('on', b.dataset.fx === 'off'));
+}
+
+// ELA — Error Level Analysis (one-shot)
+async function runEla() {
+  if (!loaded) return;
+  const w = fxCanvas.width, h = fxCanvas.height;
+  // 1. snapshot current frame into a tmp canvas
+  const tmp = document.createElement('canvas');
+  tmp.width = w; tmp.height = h;
+  const tctx = tmp.getContext('2d');
+  tctx.drawImage(vid, 0, 0, w, h);
+  const orig = tctx.getImageData(0, 0, w, h);
+  // 2. encode → JPEG q=0.75 → decode
+  const blob = await new Promise(r => tmp.toBlob(r, 'image/jpeg', 0.75));
+  if (!blob) return;
+  const img = new Image();
+  img.src = URL.createObjectURL(blob);
+  await img.decode();
+  tctx.clearRect(0, 0, w, h);
+  tctx.drawImage(img, 0, 0, w, h);
+  URL.revokeObjectURL(img.src);
+  const reEnc = tctx.getImageData(0, 0, w, h);
+  // 3. amplify diff
+  const out = fctx.createImageData(w, h);
+  const A = orig.data, B = reEnc.data, O = out.data;
+  let maxDiff = 1;
+  for (let i = 0; i < A.length; i += 4) {
+    const dr = Math.abs(A[i]   - B[i]);
+    const dg = Math.abs(A[i+1] - B[i+1]);
+    const db = Math.abs(A[i+2] - B[i+2]);
+    const m = Math.max(dr, dg, db);
+    if (m > maxDiff) maxDiff = m;
+  }
+  const scale = 255 / Math.max(8, maxDiff);
+  for (let i = 0; i < A.length; i += 4) {
+    const dr = Math.abs(A[i]   - B[i]) * scale;
+    const dg = Math.abs(A[i+1] - B[i+1]) * scale;
+    const db = Math.abs(A[i+2] - B[i+2]) * scale;
+    const m = Math.min(255, Math.max(dr, dg, db));
+    O[i]   = m;
+    O[i+1] = m;
+    O[i+2] = Math.min(255, m * 1.3);
+    O[i+3] = 235;
+  }
+  fctx.putImageData(out, 0, 0);
+  endLiveFx();
+  updateClearFxState();
+}
+
+edgeBtn.addEventListener('click', detectEdges);
+elaBtn.addEventListener('click', runEla);
+clearFxBtn.addEventListener('click', () => {
+  fctx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
+  prevFrameData = null;
+  updateClearFxState();
+});
+
+function fxCanvasHasContent() {
+  // Cheap heuristic: read a 1px sample at the center alpha
+  // Better: track a dirty flag. We'll just enable when video loaded since clear is idempotent.
+  return liveFx !== 'off';
+}
+function updateClearFxState() {
+  clearFxBtn.disabled = !loaded;
+}
+
+// ── Live RGB histogram ────────────────────────────────────
+const histCanvas = document.getElementById('histCanvas');
+const hctx = histCanvas.getContext('2d');
+const hlR = document.getElementById('hl-r');
+const hlG = document.getElementById('hl-g');
+const hlB = document.getElementById('hl-b');
+const hlY = document.getElementById('hl-y');
+let histRafId = null;
+let inspectTabVisible = false;
+const histTmp = document.createElement('canvas');
+const htctx = histTmp.getContext('2d', { willReadFrequently: true });
+
+function renderHistogram() {
+  if (!loaded || !vid.videoWidth) return;
+  const W = histCanvas.width, H = histCanvas.height;
+  // downsample for perf — 160 wide
+  const sw = 160, sh = Math.max(1, Math.round(160 * vid.videoHeight / vid.videoWidth));
+  histTmp.width = sw; histTmp.height = sh;
+  htctx.drawImage(vid, 0, 0, sw, sh);
+  const d = htctx.getImageData(0, 0, sw, sh).data;
+  const R = new Uint32Array(256), G = new Uint32Array(256), B = new Uint32Array(256), Y = new Uint32Array(256);
+  let rsum = 0, gsum = 0, bsum = 0, ysum = 0, count = 0;
+  for (let i = 0; i < d.length; i += 4) {
+    R[d[i]]++; G[d[i+1]]++; B[d[i+2]]++;
+    const y = (0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2]) | 0;
+    Y[y]++;
+    rsum += d[i]; gsum += d[i+1]; bsum += d[i+2]; ysum += y; count++;
+  }
+  let max = 1;
+  for (let i = 0; i < 256; i++) {
+    if (R[i] > max) max = R[i];
+    if (G[i] > max) max = G[i];
+    if (B[i] > max) max = B[i];
+  }
+  hctx.fillStyle = '#0a0a0a'; hctx.fillRect(0, 0, W, H);
+  function plot(arr, fill) {
+    hctx.fillStyle = fill;
+    hctx.beginPath();
+    hctx.moveTo(0, H);
+    for (let i = 0; i < 256; i++) {
+      const x = (i / 255) * W;
+      const y = H - (arr[i] / max) * H;
+      hctx.lineTo(x, y);
+    }
+    hctx.lineTo(W, H);
+    hctx.closePath();
+    hctx.fill();
+  }
+  hctx.globalCompositeOperation = 'lighter';
+  plot(R, 'rgba(255,80,96,.7)');
+  plot(G, 'rgba(95,207,111,.7)');
+  plot(B, 'rgba(93,160,255,.7)');
+  hctx.globalCompositeOperation = 'source-over';
+  // luminance as outline
+  hctx.strokeStyle = 'rgba(220,220,220,.55)';
+  hctx.lineWidth = 1;
+  hctx.beginPath();
+  for (let i = 0; i < 256; i++) {
+    const x = (i / 255) * W;
+    const y = H - (Y[i] / max) * H;
+    if (i === 0) hctx.moveTo(x, y); else hctx.lineTo(x, y);
+  }
+  hctx.stroke();
+  hlR.textContent = (rsum/count|0);
+  hlG.textContent = (gsum/count|0);
+  hlB.textContent = (bsum/count|0);
+  hlY.textContent = (ysum/count|0);
+}
+
+function startHistogram() {
+  if (histRafId != null) return;
+  const loop = () => {
+    if (!inspectTabVisible) { histRafId = null; return; }
+    renderHistogram();
+    histRafId = requestAnimationFrame(loop);
+  };
+  histRafId = requestAnimationFrame(loop);
+}
+function stopHistogram() {
+  if (histRafId != null) cancelAnimationFrame(histRafId);
+  histRafId = null;
+}
+
+// ── Motion Analyzer ──────────────────────────────────────────
+// Pre-passes the video sampling N evenly-spaced timestamps.
+// Per frame: global motion magnitude (mean abs RGB diff vs prev sample)
+//   and (if a lasso exists) mean green channel inside the lasso region.
+// Then: anomaly spikes (> 2σ above local median) on global motion,
+//   and FFT on the green signal to find a pulse peak in 0.7–3 Hz.
+
+const motCanvas    = document.getElementById('motCanvas');
+const motCtx       = motCanvas.getContext('2d');
+const motAnalyze   = document.getElementById('motAnalyzeBtn');
+const motBookmark  = document.getElementById('motBookmarkBtn');
+const motProgress  = document.getElementById('motProgress');
+const motProgBar   = document.getElementById('motProgressBar');
+const motFramesEl  = document.getElementById('mot-frames');
+const motSpikesEl  = document.getElementById('mot-spikes');
+const motPulseEl   = document.getElementById('mot-pulse');
+const motSamplesS  = document.getElementById('s-motSamples');
+const motSamplesV  = document.getElementById('v-motSamples');
+
+let motionResult = null; // { times[], global[], green[], spikes[], pulseBPM, sampleRate }
+
+motSamplesS.addEventListener('input', () => {
+  motSamplesV.textContent = motSamplesS.value;
+});
+
+// Build a polygon test from a normalized 0..1 lasso path → returns a function
+// that says whether a video-coord (x,y) is inside the lasso.
+function buildLassoMask(lassoPathNorm, VW, VH) {
+  if (!lassoPathNorm || lassoPathNorm.length < 3) return null;
+  // Pre-rasterize to a Uint8Array for O(1) point-in-polygon lookups
+  const mask = new Uint8Array(VW * VH);
+  const xs = lassoPathNorm.map(p => p.x * VW);
+  const ys = lassoPathNorm.map(p => p.y * VH);
+  let minY = VH, maxY = 0;
+  for (const y of ys) { if (y < minY) minY = y; if (y > maxY) maxY = y; }
+  minY = Math.max(0, Math.floor(minY));
+  maxY = Math.min(VH - 1, Math.ceil(maxY));
+  // Scanline polygon fill
+  for (let y = minY; y <= maxY; y++) {
+    const xings = [];
+    for (let i = 0, j = xs.length - 1; i < xs.length; j = i++) {
+      const yi = ys[i], yj = ys[j];
+      if ((yi > y) !== (yj > y)) {
+        const x = xs[j] + (y - yj) / (yi - yj) * (xs[i] - xs[j]);
+        xings.push(x);
+      }
+    }
+    xings.sort((a, b) => a - b);
+    for (let k = 0; k < xings.length; k += 2) {
+      const x0 = Math.max(0, Math.ceil(xings[k]));
+      const x1 = Math.min(VW - 1, Math.floor(xings[k+1] ?? xings[k]));
+      for (let x = x0; x <= x1; x++) mask[y * VW + x] = 1;
+    }
+  }
+  // Count selected pixels — useful for normalizing means
+  let count = 0;
+  for (let i = 0; i < mask.length; i++) if (mask[i]) count++;
+  return { mask, count };
+}
+
+async function analyzeMotion() {
+  if (!loaded || !vid.duration) return;
+  motAnalyze.disabled = true; motAnalyze.textContent = 'Analyzing…';
+  motProgress.classList.add('on');
+  motProgBar.style.width = '0%';
+
+  const N = parseInt(motSamplesS.value, 10);
+  const dur = vid.duration;
+  const sampleRate = N / dur; // samples per second
+  // Downsample video for fast computation
+  const SW = 80;
+  const SH = Math.max(8, Math.round(SW * vid.videoHeight / vid.videoWidth));
+  const tmp = document.createElement('canvas');
+  tmp.width = SW; tmp.height = SH;
+  const tctx = tmp.getContext('2d', { willReadFrequently: true });
+
+  // Lasso/wand mask — built at video native resolution
+  let lassoMaskInfo = null;
+  if (lassoPath && lassoPath.closed && lassoPath.points.length >= 3) {
+    const norm = lassoPath.points.map(p => ({
+      x: p.x / lassoCanvas.width,
+      y: p.y / lassoCanvas.height,
+    }));
+    lassoMaskInfo = buildLassoMask(norm, vid.videoWidth, vid.videoHeight);
+  }
+  // Downsample-canvas mask for restrict-to-selection motion measurement
+  let lassoMaskSW = null;
+  if (lassoMaskInfo) {
+    lassoMaskSW = buildLassoMask(
+      lassoPath.points.map(p => ({ x: p.x / lassoCanvas.width, y: p.y / lassoCanvas.height })),
+      SW, SH
+    );
+  }
+  // Native canvas for green-channel sampling
+  let nativeC, nctx;
+  if (lassoMaskInfo) {
+    nativeC = document.createElement('canvas');
+    nativeC.width = vid.videoWidth; nativeC.height = vid.videoHeight;
+    nctx = nativeC.getContext('2d', { willReadFrequently: true });
+  }
+
+  const restrict = !!(document.getElementById('motRestrict').checked && lassoMaskSW);
+
+  const times = new Float32Array(N);
+  const global = new Float32Array(N);
+  const green = lassoMaskInfo ? new Float32Array(N) : null;
+
+  const savedTime = vid.currentTime;
+  const wasPaused = vid.paused;
+  vid.pause();
+
+  let prevData = null;
+  for (let i = 0; i < N; i++) {
+    const t = (i + 0.5) / N * dur;
+    times[i] = t;
+    vid.currentTime = t;
+    await new Promise(res => vid.addEventListener('seeked', res, { once: true }));
+
+    // Global motion (downsampled abs diff), restricted to mask if asked
+    tctx.drawImage(vid, 0, 0, SW, SH);
+    const cur = tctx.getImageData(0, 0, SW, SH).data;
+    if (prevData) {
+      let acc = 0, count = 0;
+      if (restrict) {
+        const m = lassoMaskSW.mask;
+        for (let pi = 0; pi < m.length; pi++) {
+          if (!m[pi]) continue;
+          const p = pi * 4;
+          acc += Math.abs(cur[p]   - prevData[p])
+               + Math.abs(cur[p+1] - prevData[p+1])
+               + Math.abs(cur[p+2] - prevData[p+2]);
+          count++;
+        }
+        global[i] = count > 0 ? acc / (count * 3) : 0;
+      } else {
+        for (let p = 0; p < cur.length; p += 4) {
+          acc += Math.abs(cur[p]   - prevData[p])
+               + Math.abs(cur[p+1] - prevData[p+1])
+               + Math.abs(cur[p+2] - prevData[p+2]);
+        }
+        global[i] = acc / (cur.length * 0.75);
+      }
+    } else {
+      global[i] = 0;
+    }
+    prevData = new Uint8ClampedArray(cur);
+
+    // Lasso-region green (rPPG signal)
+    if (lassoMaskInfo) {
+      nctx.drawImage(vid, 0, 0);
+      const d = nctx.getImageData(0, 0, vid.videoWidth, vid.videoHeight).data;
+      const mask = lassoMaskInfo.mask;
+      let sumG = 0;
+      for (let p = 0; p < mask.length; p++) {
+        if (mask[p]) sumG += d[p * 4 + 1];
+      }
+      green[i] = sumG / lassoMaskInfo.count;
+    }
+
+    if ((i & 7) === 0 || i === N - 1) {
+      motProgBar.style.width = ((i + 1) / N * 100) + '%';
+      await new Promise(r => setTimeout(r, 0));
+    }
+  }
+
+  // Restore playhead
+  vid.currentTime = savedTime;
+  if (!wasPaused) vid.play();
+
+  // Derived metrics
+  const spikes      = detectMotionSpikes(global, times);
+  const pulseBPM    = green ? detectPulse(green, sampleRate) : null;
+  const irregularity = computeIrregularity(global);
+  const periodicity  = computePeriodicity(green || global, sampleRate);
+  const jerk         = computeJerk(global);
+
+  motionResult = {
+    times, global, green, spikes, pulseBPM, sampleRate,
+    irregularity, periodicity, jerk, restrict
+  };
+
+  renderMotion();
+  motAnalyze.disabled = false; motAnalyze.textContent = 'Re-analyze';
+  motBookmark.disabled = spikes.length === 0;
+  motProgress.classList.remove('on');
+}
+
+// ── Signal quality metrics ────────────────────────────────
+// All return 0..100 scores (higher = more of that property).
+
+// Irregularity: ratio of high-frequency variance to total variance.
+// Smooth/periodic signals concentrate energy at low frequencies, irregular signals spread it.
+function computeIrregularity(signal) {
+  if (signal.length < 8) return 0;
+  // Use signal mean as baseline
+  let m = 0;
+  for (const v of signal) m += v;
+  m /= signal.length;
+  // Total variance
+  let totalVar = 0;
+  for (const v of signal) totalVar += (v - m) * (v - m);
+  totalVar /= signal.length;
+  if (totalVar < 1e-6) return 0;
+  // High-frequency variance via second differences (jerk-like)
+  let hfVar = 0; let cnt = 0;
+  for (let i = 2; i < signal.length; i++) {
+    const d2 = signal[i] - 2 * signal[i-1] + signal[i-2];
+    hfVar += d2 * d2;
+    cnt++;
+  }
+  hfVar /= cnt;
+  // Ratio — clamp to 0..1, then scale to 0..100
+  const ratio = Math.min(1, hfVar / (totalVar * 4));
+  return Math.round(ratio * 100);
+}
+
+// Periodicity: autocorrelation peak strength.
+// Compute autocorrelation at lags from sampleRate/3 (3 Hz) to sampleRate*2 (0.5 Hz)
+// and report the strongest peak as a fraction of the zero-lag energy.
+function computePeriodicity(signal, sampleRate) {
+  if (signal.length < 16) return 0;
+  let m = 0;
+  for (const v of signal) m += v;
+  m /= signal.length;
+  const x = signal.map(v => v - m);
+  let r0 = 0;
+  for (const v of x) r0 += v * v;
+  if (r0 < 1e-6) return 0;
+  // Lag range: 0.3s to 3s
+  const lagMin = Math.max(2, Math.floor(0.3 * sampleRate));
+  const lagMax = Math.min(x.length - 2, Math.ceil(3.0 * sampleRate));
+  if (lagMax <= lagMin) return 0;
+  let best = 0;
+  for (let lag = lagMin; lag <= lagMax; lag++) {
+    let r = 0;
+    for (let i = 0; i + lag < x.length; i++) r += x[i] * x[i + lag];
+    const norm = r / r0;
+    if (norm > best) best = norm;
+  }
+  return Math.round(Math.max(0, Math.min(1, best)) * 100);
+}
+
+// Jerk: mean absolute first difference / mean signal magnitude.
+// 0 = no change, higher = larger frame-to-frame jumps.
+function computeJerk(signal) {
+  if (signal.length < 2) return 0;
+  let sumDiff = 0, sumMag = 0;
+  for (let i = 1; i < signal.length; i++) {
+    sumDiff += Math.abs(signal[i] - signal[i-1]);
+    sumMag  += Math.abs(signal[i]);
+  }
+  if (sumMag < 1e-6) return 0;
+  return Math.round(Math.min(1, sumDiff / (sumMag * 2)) * 100);
+}
+
+function detectMotionSpikes(signal, times) {
+  // Robust z-score: use rolling median + MAD over window of ~10% of samples
+  const N = signal.length;
+  const W = Math.max(5, Math.floor(N * 0.1));
+  const spikes = [];
+  const sortedBuf = new Float32Array(W * 2 + 1);
+  for (let i = 0; i < N; i++) {
+    const lo = Math.max(0, i - W), hi = Math.min(N - 1, i + W);
+    let n = 0;
+    for (let k = lo; k <= hi; k++) sortedBuf[n++] = signal[k];
+    sortedBuf.subarray(0, n).sort();
+    const median = sortedBuf[(n / 2) | 0];
+    // MAD
+    let madBuf = new Float32Array(n);
+    for (let k = 0; k < n; k++) madBuf[k] = Math.abs(sortedBuf[k] - median);
+    madBuf.sort();
+    const mad = madBuf[(n / 2) | 0] || 1e-6;
+    const z = (signal[i] - median) / (1.4826 * mad);
+    if (z > 2.5 && signal[i] > 2) { // 2.5σ AND minimum absolute floor
+      spikes.push({ idx: i, time: times[i], val: signal[i], z });
+    }
+  }
+  // Suppress duplicate spikes within the same window
+  const dedup = [];
+  for (const s of spikes) {
+    if (!dedup.length || s.idx - dedup[dedup.length - 1].idx > 3) dedup.push(s);
+    else if (s.val > dedup[dedup.length - 1].val) dedup[dedup.length - 1] = s;
+  }
+  return dedup;
+}
+
+// In-place Cooley-Tukey radix-2 FFT.
+// re/im are Float64Arrays of length 2^k.
+function fft(re, im) {
+  const N = re.length;
+  // Bit-reverse permutation
+  for (let i = 1, j = 0; i < N; i++) {
+    let bit = N >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) {
+      let tr = re[i]; re[i] = re[j]; re[j] = tr;
+      let ti = im[i]; im[i] = im[j]; im[j] = ti;
+    }
+  }
+  for (let len = 2; len <= N; len <<= 1) {
+    const half = len >> 1;
+    const ang = -2 * Math.PI / len;
+    const wRe = Math.cos(ang), wIm = Math.sin(ang);
+    for (let i = 0; i < N; i += len) {
+      let curRe = 1, curIm = 0;
+      for (let k = 0; k < half; k++) {
+        const evenRe = re[i + k], evenIm = im[i + k];
+        const oddRe  = re[i + k + half] * curRe - im[i + k + half] * curIm;
+        const oddIm  = re[i + k + half] * curIm + im[i + k + half] * curRe;
+        re[i + k] = evenRe + oddRe; im[i + k] = evenIm + oddIm;
+        re[i + k + half] = evenRe - oddRe; im[i + k + half] = evenIm - oddIm;
+        const nRe = curRe * wRe - curIm * wIm;
+        const nIm = curRe * wIm + curIm * wRe;
+        curRe = nRe; curIm = nIm;
+      }
+    }
+  }
+}
+
+function detectPulse(signal, sampleRate) {
+  // Need at least ~5 seconds of data and enough samples
+  if (signal.length < 32) return null;
+  // Zero-pad to next power of 2
+  let N = 1; while (N < signal.length) N <<= 1;
+  const re = new Float64Array(N);
+  const im = new Float64Array(N);
+  // Detrend (subtract mean) and Hann window
+  let mean = 0;
+  for (let i = 0; i < signal.length; i++) mean += signal[i];
+  mean /= signal.length;
+  for (let i = 0; i < signal.length; i++) {
+    const w = 0.5 * (1 - Math.cos(2 * Math.PI * i / (signal.length - 1)));
+    re[i] = (signal[i] - mean) * w;
+  }
+  fft(re, im);
+  // Find peak in 0.7–3 Hz (42–180 BPM)
+  const lo = Math.floor(0.7 * N / sampleRate);
+  const hi = Math.min(N >> 1, Math.ceil(3.0 * N / sampleRate));
+  if (hi <= lo) return null;
+  let bestK = -1, bestMag = 0;
+  for (let k = lo; k <= hi; k++) {
+    const mag = re[k] * re[k] + im[k] * im[k];
+    if (mag > bestMag) { bestMag = mag; bestK = k; }
+  }
+  if (bestK < 0) return null;
+  const freq = bestK * sampleRate / N;
+  const bpm = Math.round(freq * 60);
+  // Sanity SNR: peak should be N× above the median magnitude in band
+  const mags = [];
+  for (let k = lo; k <= hi; k++) mags.push(re[k]*re[k] + im[k]*im[k]);
+  mags.sort((a,b) => a - b);
+  const med = mags[(mags.length / 2) | 0] || 1e-9;
+  if (bestMag < med * 4) return null; // not a confident peak
+  return bpm;
+}
+
+function renderMotion() {
+  const r = motionResult;
+  if (!r) return;
+  const W = motCanvas.width, H = motCanvas.height;
+  motCtx.fillStyle = '#000';
+  motCtx.fillRect(0, 0, W, H);
+
+  // Find max for scale
+  let maxG = 1, maxGr = 1;
+  for (const v of r.global) if (v > maxG) maxG = v;
+  if (r.green) for (const v of r.green) if (v > maxGr) maxGr = v;
+
+  // Plot global motion (light bars, accent stroke)
+  motCtx.strokeStyle = '#5da0ff';
+  motCtx.lineWidth = 1;
+  motCtx.beginPath();
+  for (let i = 0; i < r.global.length; i++) {
+    const x = (i / (r.global.length - 1)) * W;
+    const y = H - (r.global[i] / maxG) * H * 0.9;
+    if (i === 0) motCtx.moveTo(x, y); else motCtx.lineTo(x, y);
+  }
+  motCtx.stroke();
+
+  // Plot green (lasso) if present — detrended & scaled to fill chart
+  if (r.green) {
+    let gMin = Infinity, gMax = -Infinity;
+    for (const v of r.green) { if (v < gMin) gMin = v; if (v > gMax) gMax = v; }
+    const gRange = (gMax - gMin) || 1;
+    motCtx.strokeStyle = 'rgba(95,207,111,.85)';
+    motCtx.lineWidth = 1.2;
+    motCtx.beginPath();
+    for (let i = 0; i < r.green.length; i++) {
+      const x = (i / (r.green.length - 1)) * W;
+      const y = H - ((r.green[i] - gMin) / gRange) * H * 0.7 - H * 0.15;
+      if (i === 0) motCtx.moveTo(x, y); else motCtx.lineTo(x, y);
+    }
+    motCtx.stroke();
+  }
+
+  // Spike markers
+  motCtx.fillStyle = '#e07050';
+  for (const s of r.spikes) {
+    const x = (s.idx / (r.global.length - 1)) * W;
+    motCtx.beginPath(); motCtx.arc(x, 4, 2.5, 0, Math.PI * 2); motCtx.fill();
+    // vertical guideline
+    motCtx.fillStyle = 'rgba(224,112,80,.25)';
+    motCtx.fillRect(x - 0.5, 0, 1, H);
+    motCtx.fillStyle = '#e07050';
+  }
+
+  // Legend numbers
+  motFramesEl.textContent = r.global.length + (r.restrict ? ' (in selection)' : '');
+  motSpikesEl.textContent = r.spikes.length;
+  motPulseEl.textContent  = r.pulseBPM ? `${r.pulseBPM} BPM` : (r.green ? 'none' : 'need lasso');
+  document.getElementById('mot-irr').textContent  = r.irregularity + '/100';
+  document.getElementById('mot-per').textContent  = r.periodicity  + '/100';
+  document.getElementById('mot-jerk').textContent = r.jerk + '/100';
+  // Color-code irregularity: green low, orange high
+  const irrEl = document.getElementById('mot-irr').parentElement;
+  irrEl.className = 'mot-stat' + (r.irregularity > 60 ? ' flag' : '');
+}
+
+motAnalyze.addEventListener('click', analyzeMotion);
+motBookmark.addEventListener('click', () => {
+  if (!motionResult || !motionResult.spikes.length) return;
+  let added = 0;
+  for (const s of motionResult.spikes) {
+    vid.currentTime = s.time;
+    // Use synchronous-ish path: addBookmark uses current time
+    const frame = Math.round(s.time * (estimatedFPS || 30));
+    if (!bookmarks.some(b => Math.abs(b.time - s.time) < (1 / (estimatedFPS || 30)) * 0.5)) {
+      bookmarks.push({
+        id: ++bmIdSeq, time: s.time, frame,
+        label: `motion spike (z=${s.z.toFixed(1)})`,
+      });
+      added++;
+    }
+  }
+  bookmarks.sort((a, b) => a.time - b.time);
+  renderBookmarks();
+  syncReportBtn();
+  showToast(`Pinned ${added} anomaly frame${added === 1 ? '' : 's'} as bookmarks`);
+});
+
+// ── Metadata panel ────────────────────────────────────────
+const metaGrid = document.getElementById('metaGrid');
+function refreshMetadata() {
+  const fpsStr = (estimatedFPS && isFinite(estimatedFPS)) ? estimatedFPS.toFixed(2) : '—';
+  const fileName = (vid.src && vid.src.startsWith('blob:')) ? (window._lastFileName || 'untitled') : '—';
+  const dur = vid.duration ? `${fmt(vid.duration)} (${vid.duration.toFixed(2)}s)` : '—';
+  const dims = vid.videoWidth ? `${vid.videoWidth} × ${vid.videoHeight}` : '—';
+  const ar = vid.videoWidth ? (vid.videoWidth / vid.videoHeight).toFixed(3) : '—';
+  const totalF = (vid.duration && estimatedFPS) ? Math.round(vid.duration * estimatedFPS) : '—';
+  metaGrid.replaceChildren();
+  const rows = [
+    ['File',       fileName],
+    ['Resolution', dims],
+    ['Aspect',     ar],
+    ['Duration',   dur],
+    ['FPS',        fpsStr],
+    ['Frames',     totalF],
+    ['Volume',     vid.muted ? 'muted' : Math.round(vid.volume*100)+'%'],
+  ];
+  for (const [k, v] of rows) {
+    const a = document.createElement('span'); a.className = 'meta-k'; a.textContent = k;
+    const b = document.createElement('span'); b.className = 'meta-v'; b.textContent = v;
+    b.title = v;
+    metaGrid.append(a, b);
+  }
+}
+
+// ── SMPTE timecode ────────────────────────────────────────
+const tcDisp = document.getElementById('tcDisp');
+function fmtTc(t, fps) {
+  if (!isFinite(fps) || fps <= 0) fps = 30;
+  const totalFrames = Math.round(t * fps);
+  const hh = Math.floor(t / 3600);
+  const mm = Math.floor((t % 3600) / 60);
+  const ss = Math.floor(t % 60);
+  const ff = totalFrames % Math.round(fps);
+  const z = n => String(n).padStart(2, '0');
+  return `${z(hh)}:${z(mm)}:${z(ss)}:${z(ff)}`;
+}
+function updateTimecode() {
+  if (!loaded) { tcDisp.classList.remove('on'); return; }
+  tcDisp.classList.add('on');
+  tcDisp.textContent = fmtTc(vid.currentTime, estimatedFPS || 30);
+}
+
+// ── PDF report export ─────────────────────────────────────
+const reportBtn = document.getElementById('reportBtn');
+async function exportReport() {
+  if (!loaded || bookmarks.length === 0) return;
+  reportBtn.disabled = true; reportBtn.textContent = 'Building…';
+  try {
+    // PDF needs jsPDF — load on demand
+    if (!window.jspdf) {
+      await new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js';
+        s.onload = res; s.onerror = rej;
+        document.head.appendChild(s);
+      });
+    }
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const margin = 36;
+
+    // Title page
+    pdf.setFontSize(20); pdf.text('Forensic Inspection Report', margin, 70);
+    pdf.setFontSize(10);
+    pdf.text(`Generated: ${new Date().toLocaleString()}`, margin, 92);
+    pdf.text(`Source: ${window._lastFileName || 'untitled'}`, margin, 108);
+    pdf.text(`Duration: ${fmt(vid.duration)}  ·  ${vid.videoWidth}×${vid.videoHeight}  ·  ${(estimatedFPS||0).toFixed(2)} fps`, margin, 124);
+    pdf.text(`Bookmarks: ${bookmarks.length}`, margin, 140);
+
+    // Snapshot helper
+    const snap = document.createElement('canvas');
+    snap.width = Math.min(1280, vid.videoWidth);
+    snap.height = Math.round(snap.width * vid.videoHeight / vid.videoWidth);
+    const sctx = snap.getContext('2d');
+
+    const savedTime = vid.currentTime;
+    const wasPaused = vid.paused;
+    if (!wasPaused) vid.pause();
+
+    for (let i = 0; i < bookmarks.length; i++) {
+      const b = bookmarks[i];
+      vid.currentTime = b.time;
+      await new Promise(res => vid.addEventListener('seeked', res, { once: true }));
+      sctx.drawImage(vid, 0, 0, snap.width, snap.height);
+      // Overlay the lasso if this bookmark has one (stored in normalized 0..1 coords)
+      if (b.lasso && b.lasso.length > 2) {
+        const sw = snap.width, sh = snap.height;
+        sctx.save();
+        sctx.beginPath();
+        sctx.moveTo(b.lasso[0].x * sw, b.lasso[0].y * sh);
+        for (let j = 1; j < b.lasso.length; j++) {
+          sctx.lineTo(b.lasso[j].x * sw, b.lasso[j].y * sh);
+        }
+        sctx.closePath();
+        sctx.fillStyle = 'rgba(62,207,142,.12)';
+        sctx.fill();
+        sctx.lineWidth = 3;
+        sctx.strokeStyle = 'rgba(0,0,0,.6)';
+        sctx.stroke();
+        sctx.lineWidth = 1.5;
+        sctx.strokeStyle = '#3ecf8e';
+        sctx.setLineDash([8, 5]);
+        sctx.stroke();
+        sctx.restore();
+      }
+      const dataUrl = snap.toDataURL('image/jpeg', 0.82);
+
+      pdf.addPage();
+      pdf.setFontSize(14);
+      pdf.text(`Bookmark ${i+1} of ${bookmarks.length}`, margin, 50);
+      pdf.setFontSize(10);
+      pdf.text(`Timecode: ${fmtTc(b.time, estimatedFPS||30)}   ·   Frame F${b.frame}   ·   t=${b.time.toFixed(3)}s`, margin, 70);
+      const label = b.label || '(no note)';
+      const wrapped = pdf.splitTextToSize(label, pageW - margin*2);
+      pdf.text(wrapped, margin, 90);
+
+      const imgW = pageW - margin*2;
+      const imgH = imgW * snap.height / snap.width;
+      const maxH = pageH - 90 - margin*2 - 16*Math.max(1, wrapped.length);
+      const finalH = Math.min(imgH, maxH);
+      const finalW = finalH * snap.width / snap.height;
+      pdf.addImage(dataUrl, 'JPEG', (pageW - finalW)/2, 110 + (wrapped.length-1)*14, finalW, finalH);
+    }
+
+    vid.currentTime = savedTime;
+    if (!wasPaused) vid.play();
+
+    const fname = (window._lastFileName || 'video').replace(/\.[^.]+$/, '') + '-report.pdf';
+    pdf.save(fname);
+  } finally {
+    reportBtn.disabled = bookmarks.length === 0;
+    reportBtn.textContent = 'Export Report (PDF)';
+  }
+}
+reportBtn.addEventListener('click', exportReport);
+
+// ── Blur detection ────────────────────────────────────────
+document.getElementById('detectBlurBtn').addEventListener('click', detectBlurRegions);
+document.getElementById('clearBlurBtn').addEventListener('click', () => {
+  strokes = strokes.filter(s => s._blur !== true);
+  dctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+  redrawStrokes();
+  document.getElementById('blurResult').style.display = 'none';
+  document.getElementById('clearBlurBtn').disabled = true;
+});
+
+function detectBlurRegions() {
+  if (!loaded) return;
+  const btn = document.getElementById('detectBlurBtn');
+  btn.textContent = 'Analysing…'; btn.disabled = true;
+
+  // Run async so UI updates first
+  setTimeout(() => {
+    const sensitivity = parseInt(document.getElementById('s-blurSens').value) / 100;
+    const W = vid.videoWidth, H = vid.videoHeight;
+    const tmp = document.createElement('canvas');
+    tmp.width = W; tmp.height = H;
+    tmp.getContext('2d').drawImage(vid, 0, 0);
+    const {data} = tmp.getContext('2d').getImageData(0, 0, W, H);
+
+    // Grayscale
+    const gray = new Float32Array(W * H);
+    for (let i = 0; i < data.length; i += 4)
+      gray[i>>2] = 0.299*data[i] + 0.587*data[i+1] + 0.114*data[i+2];
+
+    // Laplacian variance per cell
+    const CELL = Math.max(24, Math.round(W / 40));
+    const cols = Math.ceil(W / CELL);
+    const rows = Math.ceil(H / CELL);
+    const vars = new Float32Array(cols * rows);
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const x0 = c*CELL, y0 = r*CELL;
+        const x1 = Math.min(x0+CELL, W-1);
+        const y1 = Math.min(y0+CELL, H-1);
+        let sum = 0, sq = 0, n = 0;
+        for (let y = y0+1; y < y1; y++) {
+          for (let x = x0+1; x < x1; x++) {
+            const i = y*W + x;
+            const lap = 4*gray[i] - gray[i-1] - gray[i+1] - gray[i-W] - gray[i+W];
+            sum += lap; sq += lap*lap; n++;
+          }
+        }
+        if (n) { const m = sum/n; vars[r*cols+c] = sq/n - m*m; }
+      }
+    }
+
+    // Median-relative threshold
+    const sorted = Float32Array.from(vars).sort();
+    const median = sorted[Math.floor(sorted.length * 0.5)];
+    const threshold = median * sensitivity;
+
+    // Remove old blur overlays, draw new ones on drawCanvas
+    const {w, h} = vSize();
+    let blurCount = 0;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const v = vars[r*cols + c];
+        if (v < threshold && v >= 0) {
+          blurCount++;
+          const t = v / (threshold || 1);
+          // Red = very blurry, orange = moderately blurry
+          dctx.fillStyle = t < 0.3 ? 'rgba(255,30,30,0.42)' : 'rgba(255,140,0,0.32)';
+          const nx = c*CELL/W * w;
+          const ny = r*CELL/H * h;
+          const nw = CELL/W   * w;
+          const nh = CELL/H   * h;
+          dctx.fillRect(nx, ny, nw, nh);
+        }
+      }
+    }
+
+    const pct = Math.round(blurCount / vars.length * 100);
+    const res = document.getElementById('blurResult');
+    res.style.display = 'block';
+    res.textContent = blurCount === 0
+      ? 'No abnormally blurry regions detected.'
+      : `${blurCount} blurry cell${blurCount>1?'s':''} found (${pct}% of frame) — highlighted in red/orange on video.`;
+
+    document.getElementById('clearBlurBtn').disabled = false;
+    btn.textContent = 'Detect Blur'; btn.disabled = false;
+  }, 16);
+}
+
+// ── Inspect tab mouse handling ────────────────────────────
+let inspectTabOpen = false;
+
+function onInspectMouseMove(e) {
+  if (!loaded) return;
+  const pr = preview.getBoundingClientRect();
+  if (e.clientX < pr.left || e.clientX > pr.right ||
+      e.clientY < pr.top  || e.clientY > pr.bottom) {
+    loupeWrap.style.display = 'none';
+    colorTip.style.display  = 'none';
+    return;
+  }
+  if (loupeActive) drawLoupe(e.clientX, e.clientY);
+  if (inspectTabOpen) {
+    const col = sampleColor(e.clientX, e.clientY);
+    if (col) showColorTip(col, e.clientX, e.clientY);
+  }
+}
+
+function onInspectClick(e) {
+  if (!inspectTabOpen || !loaded) return;
+  const pr = preview.getBoundingClientRect();
+  if (e.clientX < pr.left || e.clientX > pr.right ||
+      e.clientY < pr.top  || e.clientY > pr.bottom) return;
+  const col = sampleColor(e.clientX, e.clientY);
+  if (col) pinColor(col);
+}
+
+window.addEventListener('mousemove', onInspectMouseMove);
+window.addEventListener('click',     onInspectClick);
+
+// ════════════════════════════════════════════════════════
+// ── WIRE UP: update existing hooks ───────────────────────
+// ════════════════════════════════════════════════════════
+
+exportBtn.addEventListener('click', () => {
+  if (!loaded) return;
+  exportBtn.disabled = true; exportBtn.textContent = 'Exporting…';
+
+  const ctx = xcanvas.getContext('2d');
+  const sx  = Math.round(crop.x / 100 * vid.videoWidth);
+  const sy  = Math.round(crop.y / 100 * vid.videoHeight);
+  const sw  = Math.round(crop.w / 100 * vid.videoWidth);
+  const sh  = Math.round(crop.h / 100 * vid.videoHeight);
+  xcanvas.width = sw; xcanvas.height = sh;
+  const filterStr = buildFilter();
+
+  if (!audioCtx) {
+    audioCtx = new AudioContext();
+    audioSrc = audioCtx.createMediaElementSource(vid);
+    audioSrc.connect(audioCtx.destination);
+  }
+  const audioDest = audioCtx.createMediaStreamDestination();
+  audioSrc.connect(audioDest);
+
+  const combined = new MediaStream([
+    ...xcanvas.captureStream(30).getTracks(),
+    ...audioDest.stream.getTracks()
+  ]);
+  const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
+    ? 'video/webm;codecs=vp9,opus' : 'video/webm';
+  const rec    = new MediaRecorder(combined, {mimeType:mime, videoBitsPerSecond:6_000_000});
+  const chunks = [];
+  rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+
+  const savedTime = vid.currentTime;
+  const wasPaused = vid.paused;
+
+  rec.onstop = () => {
+    audioSrc.disconnect(audioDest);
+    const blob = new Blob(chunks, {type:'video/webm'});
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = 'export.webm'; a.click();
+    URL.revokeObjectURL(url);
+    vid.removeEventListener('timeupdate', draw);
+    vid.currentTime = savedTime;
+    if (wasPaused) { vid.pause(); setPlaying(false); }
+    exportBtn.disabled = false; exportBtn.textContent = 'Export';
+  };
+
+  function draw() {
+    // Video frame with color adjustments
+    ctx.filter = filterStr;
+    ctx.drawImage(vid, sx, sy, sw, sh, 0, 0, sw, sh);
+    ctx.filter = 'none';
+
+    // Annotation strokes at full video resolution
+    if (strokes.length > 0) {
+      strokes.forEach(s => renderStroke(ctx, s, sw, sh));
+    }
+
+    if (vid.ended) rec.stop();
+  }
+
+  vid.addEventListener('timeupdate', draw);
+  rec.start(100);
+  vid.currentTime = 0;
+  vid.play();
+  setPlaying(true);
+});
+
+// ── Help modal ───────────────────────────────────────────
+const HELP = [
+  // ── Getting Started ──
+  { cat:'Start', title:'Guided Tour', keys:[], body:
+    'Take a 60-second click-through of every major feature. The help closes and a spotlight ring walks you through the UI.',
+    tips:['Load a short test video first so the live overlays have something to render.'],
+    try:[{ label:'Start the Tour', invoke:'tour', tour:true }] },
+  { cat:'Start', title:'Open a Video', keys:[], body:
+    'Click <b>Open File</b> in the header or drag a video file into the preview area. Most browser-playable codecs work — MP4 (H.264), WebM, MOV. Audio is preserved through export.',
+    tips:['Larger files load faster from a local drive than from a network share.','The detected fps is shown in the Inspect → Metadata panel — verify it before frame stepping.'],
+    try:[{ label:'Open file picker', target:'#openBtn', click:true }] },
+  { cat:'Start', title:'Forensic Workflow (Generic)', keys:[], body:
+    'A typical inspection pass:',
+    tips:[],
+    list:[
+      'Load video, glance at <b>Inspect → Metadata</b> to confirm resolution and fps.',
+      'Step through with <span class="kbd">,</span> / <span class="kbd">.</span>, watching the <b>Histogram</b> for sudden distribution shifts (potential cuts).',
+      'Toggle <b>Clipping</b> to scan for blown highlights or crushed blacks.',
+      'Switch to <b>False Color</b> for exposure regions; <b>Frame Diff</b> for motion.',
+      'When you find a frame of interest, press <span class="kbd">B</span> to bookmark, type a note.',
+      'For deeper analysis, run <b>ELA</b> (tamper) or <b>Edges</b> (Sobel).',
+      'Use the <b>Loupe</b> + <b>Color Picker</b> to inspect pixel-level detail.',
+      'Export <b>Report (PDF)</b> from the Inspect panel when you are done.',
+    ] },
+
+  // ────────────────────────────────────────────────────────
+  // YOUR WORKFLOWS — add or edit the cards below.
+  // Each card: { cat, title, keys, body, tips, list }
+  //   cat   — appears as a tab; reuse 'Start' to keep them together
+  //   keys  — array of strings rendered as <kbd> chips next to the title
+  //   body  — paragraph supporting <b>, <i>, <code>, <span class="kbd">
+  //   tips  — array of strings; each renders as a green "★" callout
+  //   list  — optional ordered/step list
+  // Add a `warn:[…]` field to render red "warning" callouts.
+  // ────────────────────────────────────────────────────────
+  { cat:'Start', title:'My Workflow — Surveillance Footage', keys:[], body:
+    'TODO: Replace this with your actual surveillance-footage inspection workflow. What do you check first? What does each red flag trigger?',
+    tips:[
+      'TODO: e.g. "If the histogram has a hard wall on the right, treat the highlights as un-verifiable."',
+      'TODO: e.g. "Frame counter mismatch with metadata duration → check for trim splice."',
+    ] },
+  { cat:'Start', title:'My Workflow — Suspected Tampering', keys:[], body:
+    'TODO: Replace this with your tamper-detection workflow — when does ELA help, when does it lie?',
+    list:[
+      'TODO: step 1',
+      'TODO: step 2',
+    ],
+    tips:[] },
+
+  // ── Playback ──
+  { cat:'Playback', title:'Play & Pause', keys:['Space', 'Click video'], body:
+    'Press <span class="kbd">Space</span> or click the video. The play button in the controls bar also works.',
+    tips:['Click during a pan drag will not toggle playback — only a clean click does.'] },
+  { cat:'Playback', title:'Speed', keys:['ArrowUp / ArrowDown (in speed field)'], body:
+    'Set playback speed 0.1× – 80× in the speed input. Arrow keys nudge by 0.05.',
+    tips:['Use 0.25× when reading text on motion-blurred frames. Use 4–8× to scan long footage for events.'] },
+  { cat:'Playback', title:'Seek (5s)', keys:['←','→'], body:
+    'Left/right arrows jump 5 seconds when no input is focused.',
+    tips:[] },
+  { cat:'Playback', title:'Frame Step', keys:[',','.', '◀ / ▶'], body:
+    'Step exactly one frame back/forward. Uses the auto-detected fps via <code>requestVideoFrameCallback</code>.',
+    tips:['If the frame counter looks off, the metadata fps may be wrong — check Inspect → Metadata. Re-loading the file restarts fps detection.'],
+    try:[
+      { label:'Step back one frame', target:'#stepBackBar', click:true, requiresVideo:true },
+      { label:'Step forward one frame', target:'#stepFwdBar', click:true, requiresVideo:true },
+    ] },
+
+  // ── Zoom & Pan ──
+  { cat:'View', title:'Zoom (Figma-style)', keys:['Ctrl/Cmd + scroll', 'Cmd + =', 'Cmd + −'], body:
+    '<b>Ctrl/Cmd + scroll</b> zooms centered on the cursor. Plain scroll <b>pans</b> the canvas. Middle-mouse drag pans.',
+    tips:['<b>Cmd + 0</b> fits the video to the viewport. <b>Cmd + 1</b> is 100% (actual size — best for forensic pixel inspection).'] },
+  { cat:'View', title:'Zoom HUD', keys:[], body:
+    'Bottom-left of the preview. Buttons step zoom; the percentage is also a click target.',
+    tips:[] },
+
+  // ── Adjust tab ──
+  { cat:'Adjust', title:'Color & Light Sliders', keys:[], body:
+    'Exposure, brightness, contrast, highlights, shadows, saturation, temperature, tint, hue, vignette, blur. Applied as CSS filters in preview; baked in at full resolution at export.',
+    tips:['<b>Auto Enhance</b> reads the live histogram and proposes adjustments — useful as a starting point on a dim or washed-out clip.','Forensic best practice: <b>never</b> use Adjust before running ELA — re-encoding changes the artifacts you are trying to detect.'] },
+  { cat:'Adjust', title:'AI (HuggingFace)', keys:[], body:
+    'Optional: paste a HuggingFace token to send the current frame to a SwinSR super-resolution model. Token stays local — only the frame is sent.',
+    tips:['Useful for low-resolution surveillance footage. Compare before/after in the popup.'] },
+
+  // ── Presets ──
+  { cat:'Presets', title:'Cinematic / Creative Looks', keys:[], body:
+    '12 preset combinations of the Adjust sliders, with a 400ms eased transition.',
+    tips:['Presets stack onto the current settings — click <b>Reset All</b> first for a clean starting point.'] },
+
+  // ── Draw ──
+  { cat:'Draw', title:'Highlighter / Pencil / Eraser', keys:['Cmd/Ctrl + Z'], body:
+    'Annotate over the video. Strokes are drawn at the displayed scale but exported at full video resolution.',
+    tips:['Use the Highlighter (low opacity, large size) to circle regions; Pencil for precise marks.','Strokes persist across frame changes — they overlay the video as a single layer.'] },
+  { cat:'Draw', title:'Lasso (polygonal + freehand)', keys:['Enter','Esc'], body:
+    'Two ways to use it. <b>Click each vertex</b> like Photoshop\'s polygonal lasso, then click near the start to close (a green ring appears when you\'re close enough). Or <b>drag</b> for freehand — release closes the path automatically.',
+    tips:[
+      '<span class="kbd">Enter</span> closes a polygonal lasso even if you\'re not near the start.',
+      '<span class="kbd">Esc</span> cancels an in-progress lasso completely.',
+      '<b>Deselect</b> clears the current selection without affecting drawings.',
+      '<b>Save</b> stores the closed selection in the Library below so you can <b>↻ Recall</b> it later or compare regions across times.',
+      '<b>Analyze Selection</b> jumps to the Motion Analyzer with "Restrict to selection" pre-checked.',
+      '<b>Pin as Bookmark</b> attaches the shape to a new bookmark — it\'s rendered onto the snapshot in the PDF report.',
+    ],
+    try:[{ label:'Switch to Lasso tool', target:'.tool-btn[data-tool="lasso"]', tab:'draw', click:true }] },
+  { cat:'Draw', title:'Magic Wand (color flood-fill)', keys:['Shift','Alt/Opt'], body:
+    'Click any pixel — the wand selects all connected pixels within color tolerance. Useful for tracing a uniform region (a redacted patch, a sky, a wall).',
+    tips:[
+      'Hold <span class="kbd">Shift</span> for wider tolerance (48), <span class="kbd">Alt</span>/<span class="kbd">Opt</span> for tighter (10). Default is 24.',
+      'Result is a closed lasso path you can refine or pin. Re-click to replace.',
+      'Forensic use: click inside a suspected blur patch — if the boundary the wand traces matches the visible edge exactly, the region was likely added as a solid mask.',
+    ],
+    try:[{ label:'Switch to Magic Wand', target:'.tool-btn[data-tool="wand"]', tab:'draw', click:true }] },
+
+  // ── Inspect: meta ──
+  { cat:'Inspect', title:'Metadata Panel', keys:[], body:
+    'File, resolution, aspect ratio, duration, detected fps, total frame count, volume.',
+    tips:['If FPS shows a non-standard value (like 29.97 or 23.976), pay attention — forensic chains often re-encode to canonical fps.','Frame count = duration × fps. Mismatched values can indicate a corrupted or trimmed file.'] },
+  { cat:'Inspect', title:'Frame Step', keys:[',','.', '◀ / ▶'], body:
+    'Step exactly one frame using the detected fps. The frame counter under the buttons is the source of truth.',
+    tips:[] },
+  { cat:'Inspect', title:'Loupe', keys:[], body:
+    'Toggle on, then hover the video. A circular magnifier (2× – 16×) shows pixel-level detail with crisp edges.',
+    tips:['At 16×, you can see individual JPEG block boundaries — useful for spotting re-encoded regions.'],
+    try:[{ label:'Toggle Loupe', target:'#loupeToggle', tab:'inspect', click:true, requiresVideo:true }] },
+  { cat:'Inspect', title:'Color Picker', keys:[], body:
+    'Hover anywhere on the video for a live RGB/HSL/Hex readout. Click to <b>pin</b> a sample to the history strip.',
+    tips:['Pinned colors stay across video loads — handy for comparing the same region between clips.','Hex values are the fastest way to confirm two pixels are exactly equal.'] },
+  { cat:'Inspect', title:'Histogram', keys:[], body:
+    'Live RGB curves + luminance outline. Mean values shown below.',
+    tips:['Watch for <b>combs</b> (gaps) in the histogram — they typically indicate aggressive contrast adjustment.','A spike at 0 or 255 means clipping — switch to the Clipping overlay to find where.'],
+    try:[{ label:'Show me the histogram', target:'#histCanvas', tab:'inspect' }] },
+
+  // ── Overlays ──
+  { cat:'Overlays', title:'Clipping', keys:[], body:
+    'Pixels above 250 (any channel) glow <span style="color:#ff5060">red</span>, below 5 glow <span style="color:#5da0ff">blue</span>. Live as the video plays.',
+    tips:['Red areas have lost detail (highlights) — un-recoverable without re-shooting. Blue areas (crushed blacks) sometimes hide noise.','Forensic use: confirm whether a "black region" is truly black or just below display range.'],
+    try:[{ label:'Try Clipping overlay', invoke:'fx:clip', requiresVideo:true }] },
+  { cat:'Overlays', title:'False Color', keys:[], body:
+    'Maps luminance to the broadcast spectrum: purple → blue → cyan → green → yellow → red → white.',
+    tips:['Skin tones land in the yellow-green range. Caucasian skin ≈ yellow, darker skin ≈ green.','Use to check exposure region uniformity — banding in a "flat" surface shows as color stripes.'],
+    try:[{ label:'Try False Color', invoke:'fx:false', requiresVideo:true }] },
+  { cat:'Overlays', title:'Frame Diff', keys:[], body:
+    'Pixels that changed >12 from the previous frame are highlighted in green. Motion is amplified, static areas are transparent.',
+    tips:['Play forward at 1× to spot cuts: a cut shows as <b>full-frame green</b> for one frame.','Pause and step frame-by-frame to localize subtle motion.'],
+    try:[{ label:'Try Frame Diff', invoke:'fx:diff', requiresVideo:true }] },
+  { cat:'Overlays', title:'Grid · Rule of 3rds', keys:[], body:
+    'Two vertical + two horizontal lines at 33.3% / 66.6%. Composition reference.',
+    tips:[],
+    try:[{ label:'Show grid', invoke:'grid:thirds', requiresVideo:true }] },
+  { cat:'Overlays', title:'Grid · Crosshair', keys:[], body:
+    'Center crosshair — useful for aligning frames in a comparison or checking parallax.',
+    tips:[],
+    try:[{ label:'Show crosshair', invoke:'grid:cross', requiresVideo:true }] },
+  { cat:'Overlays', title:'Grid · Safe Area', keys:[], body:
+    'Broadcast safe areas: yellow = 90% (action safe), cyan = 80% (title safe).',
+    tips:['Confirms whether on-screen text/UI in the original was within standard safe zones — clue about the original production environment.'],
+    try:[{ label:'Show safe areas', invoke:'grid:safe', requiresVideo:true }] },
+
+  // ── One-shot analysis ──
+  { cat:'Analysis', title:'Edges (Sobel)', keys:[], body:
+    'Single-frame Sobel filter. Strong luminance gradients are drawn in teal.',
+    tips:['Pause first, then run. Edges shows the underlying structure; useful when the subject is camouflaged by lighting.','Re-run after each seek for the new frame.'],
+    try:[{ label:'Run Edges on current frame', invoke:'edges', requiresVideo:true }] },
+  { cat:'Analysis', title:'ELA — Error Level Analysis', keys:[], body:
+    'Re-encodes the current frame as JPEG quality 75 then amplifies the per-pixel difference. Regions with notably different error levels suggest tampering or re-encoding.',
+    tips:['<b>Pause on a clean frame first.</b> Motion frames are misleading.','Look for sharp <i>boundaries</i> in the result — a uniform area suddenly becoming brighter often means a paste-in or local edit.','Caveats: lossless sources (or pre-compressed video) limit reliability. Use as a <i>hint</i>, not proof.'],
+    try:[{ label:'Run ELA on current frame', invoke:'ela', requiresVideo:true }] },
+  { cat:'Analysis', title:'Blur Detection', keys:[], body:
+    'Laplacian variance heatmap. Blurry regions get a red/orange overlay drawn onto the annotation canvas (so it can be undone independently).',
+    tips:['Useful for redactions: a hand-drawn pixel blur often has telltale Laplacian signature different from natural motion blur.','Adjust Sensitivity if everything or nothing flags.'],
+    try:[{ label:'Run Blur Detection', target:'#detectBlurBtn', tab:'inspect', click:true, requiresVideo:true }] },
+  { cat:'Analysis', title:'Motion Analyzer', keys:[], body:
+    'Pre-passes the whole video at <b>N evenly-spaced frames</b> (default 200, adjustable). Computes four motion measurements: <b>spikes</b> (instantaneous outliers), <b>irregularity</b> (high-frequency chaos 0–100), <b>periodicity</b> (rhythmic strength 0–100), and <b>jerk</b> (frame-to-frame change magnitude). With a Lasso/Wand selection, also computes <b>pulse BPM</b> via rPPG.',
+    tips:[
+      '<b>Spike vs irregularity vs jerk</b>: a spike is one outlier frame. Irregularity is the whole signal being chaotic (tremors, glitches, unnatural rhythm). Jerk is mean frame-to-frame change — high values mean motion is constantly changing direction.',
+      '<b>Periodicity high &amp; irregularity low</b> = natural rhythmic motion (heartbeat, walking, machinery). <b>Both high</b> = irregular but with some hidden rhythm. <b>Periodicity low &amp; irregularity high</b> = pure chaos — often the signature of tampered or glitched footage.',
+      '<b>Restrict to selection</b>: when checked, global motion is only measured inside the lasso. Useful for analyzing motion in a specific region (a face, a hand, a clock) while ignoring background motion.',
+      '<b>Pulse</b>: lasso a face/skin region first, then run. Needs ~5+ seconds and an SNR peak ≥4× the median in the 0.7–3 Hz band, otherwise reports "none".',
+      '<b>Pin Anomalies</b> auto-bookmarks every spike with a "motion spike (z=…)" label so they flow into the PDF report.',
+    ],
+    try:[{ label:'Run motion analysis', target:'#motAnalyzeBtn', tab:'inspect', click:true, requiresVideo:true }] },
+  { cat:'Analysis', title:'Clear Overlay', keys:[], body:
+    'Clears the FX canvas (clipping/false-color/diff/edges/ELA). Does not affect drawing strokes or grids.',
+    tips:[],
+    try:[{ label:'Clear overlay now', invoke:'clearFx', requiresVideo:true }] },
+
+  // ── Bookmarks ──
+  { cat:'Bookmarks', title:'Pin a Frame', keys:['B'], body:
+    'Press <span class="kbd">B</span> or click <b>Pin Frame</b>. The current frame is added to the list with timecode + frame number, and a green pin appears on the timeline.',
+    tips:['<span class="kbd">B</span> is ignored while typing in any input — safe to use with the speed field focused.','Bookmarks dedupe within ½ frame, so spamming <span class="kbd">B</span> on the same frame is a no-op.'],
+    try:[{ label:'Pin current frame', invoke:'bookmark', requiresVideo:true }] },
+  { cat:'Bookmarks', title:'Notes', keys:[], body:
+    'Click the label field on any bookmark to type a note. Updates live — the pin tooltip on the timeline updates as you type.',
+    tips:['Keep notes specific: "blur on subject\'s left hand, F142" beats "weird frame". Notes are exported into the PDF report.'] },
+  { cat:'Bookmarks', title:'Seek & Delete', keys:[], body:
+    'Click any bookmark\'s timecode (or its timeline pin) to jump there. Click <span style="color:#e07050">×</span> to delete.',
+    tips:[] },
+  { cat:'Bookmarks', title:'Export Report (PDF)', keys:[], body:
+    'Generates a multi-page PDF: title page with metadata, then one page per bookmark — frame snapshot, SMPTE timecode, frame number, and your note.',
+    tips:['Loads jsPDF from CDN on first use (~50KB). Subsequent exports are instant.','Snapshots are JPEG q=0.82, capped at 1280px wide — small enough to email, sharp enough to read.'],
+    try:[{ label:'Open Export Report button', target:'#reportBtn', tab:'inspect' }] },
+
+  // ── Crop & Export ──
+  { cat:'Crop', title:'Aspect Ratio / Pixel Values', keys:[], body:
+    'Pick a preset (Free, 16:9, 9:16, 4:3, 1:1, 3:2, 21:9, 5:4) or type pixel values. Drag the crop box and corners to adjust.',
+    tips:[] },
+  { cat:'Export', title:'Export WebM', keys:[], body:
+    'Top-right <b>Export</b> button. Bakes the current Adjust sliders, crop, and annotation strokes into a WebM file at full video resolution. Uses VP9 if supported.',
+    tips:['Export runs at real-time speed (the video plays once). Pause and review first.','Bookmarks are not in the WebM — use Report (PDF) for those.'] },
+
+  // ── Shortcuts ──
+  { cat:'Shortcuts', title:'Key Tutor (interactive)', keys:[], body:
+    'Press any key while this card is visible — the box below names what it does. Great for memorizing shortcuts.',
+    tips:[],
+    kt:true },
+  { cat:'Shortcuts', title:'All Keys', keys:[], body:
+    'Most shortcuts are disabled while you are typing in an input.',
+    tips:[],
+    list:[
+      '<span class="kbd">Space</span> — play/pause',
+      '<span class="kbd">,</span> / <span class="kbd">.</span> — frame back / forward',
+      '<span class="kbd">←</span> / <span class="kbd">→</span> — seek 5s back / forward',
+      '<span class="kbd">B</span> — pin current frame as bookmark',
+      '<span class="kbd">?</span> — open / close this help',
+      '<span class="kbd">Esc</span> — close help, modals',
+      '<span class="kbd">Cmd</span>+<span class="kbd">Z</span> — undo last draw stroke (Draw tab)',
+      '<span class="kbd">Cmd</span>+<span class="kbd">scroll</span> — zoom centered on cursor',
+      '<span class="kbd">Cmd</span>+<span class="kbd">=</span> / <span class="kbd">−</span> — zoom in / out',
+      '<span class="kbd">Cmd</span>+<span class="kbd">0</span> — fit to viewport',
+      '<span class="kbd">Cmd</span>+<span class="kbd">1</span> — 100% actual size',
+    ] },
+];
+
+const helpBtn    = document.getElementById('helpBtn');
+const helpModal  = document.getElementById('helpModal');
+const helpClose  = document.getElementById('helpClose');
+const helpSearch = document.getElementById('helpSearch');
+const helpTabs   = document.getElementById('helpTabs');
+const helpBody   = document.getElementById('helpBody');
+
+let helpCategory = 'All';
+
+// ── Spotlight ring ─────────────────────────────────
+let _spotEls = null;
+function clearSpotlight() {
+  if (_spotEls) {
+    _spotEls.ring?.remove();
+    _spotEls.label?.remove();
+    window.removeEventListener('scroll', _spotEls.reposition, true);
+    window.removeEventListener('resize', _spotEls.reposition);
+    _spotEls = null;
+  }
+}
+function spotlight(selector, opts = {}) {
+  clearSpotlight();
+  const el = document.querySelector(selector);
+  if (!el) return false;
+  el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  const ring = document.createElement('div');
+  ring.className = 'spot-ring';
+  const label = document.createElement('div');
+  label.className = 'spot-label';
+  const txt = document.createElement('span');
+  txt.textContent = opts.label || 'Here';
+  const close = document.createElement('button');
+  close.textContent = '×';
+  close.title = 'Dismiss';
+  close.addEventListener('click', clearSpotlight);
+  label.append(txt, close);
+  document.body.append(ring, label);
+
+  function reposition() {
+    if (!_spotEls) return;
+    const r = el.getBoundingClientRect();
+    const pad = 4;
+    ring.style.left   = (r.left - pad) + 'px';
+    ring.style.top    = (r.top - pad) + 'px';
+    ring.style.width  = (r.width + pad*2) + 'px';
+    ring.style.height = (r.height + pad*2) + 'px';
+    // Label goes above if room, else below
+    label.style.left = Math.max(8, r.left) + 'px';
+    if (r.top > 50) label.style.top = (r.top - 36) + 'px';
+    else            label.style.top = (r.bottom + 10) + 'px';
+  }
+  _spotEls = { ring, label, reposition };
+  reposition();
+  window.addEventListener('scroll', reposition, true);
+  window.addEventListener('resize', reposition);
+  // Auto-dismiss after timeout unless opts.persist
+  if (!opts.persist) {
+    setTimeout(() => { if (_spotEls && _spotEls.ring === ring) clearSpotlight(); }, opts.timeout || 4500);
+  }
+  return true;
+}
+// Dismiss spotlight on any click (after a tick so the trigger click doesn't kill it)
+document.addEventListener('click', e => {
+  if (!_spotEls) return;
+  if (e.target.closest('.spot-label')) return;
+  // Let the user click the spotlighted element itself
+  if (e.target.closest('.spot-ring')) return;
+  setTimeout(() => clearSpotlight(), 50);
+}, true);
+
+// ── Help "Try it" dispatcher ─────────────────────────────
+function switchTab(name) {
+  const t = document.querySelector(`.tab[data-t="${name}"]`);
+  if (t) t.click();
+}
+function doTryAction(a) {
+  closeHelp();
+  if (a.tab) switchTab(a.tab);
+  setTimeout(() => {
+    if (a.tour) { startTour(); return; }
+    if (a.invoke) {
+      switch (a.invoke) {
+        case 'fx:clip':   if (loaded) setFxMode('clip');   spotlight('#fxCanvas', { label:'Clipping overlay active' }); break;
+        case 'fx:false':  if (loaded) setFxMode('false');  spotlight('#fxCanvas', { label:'False color active' }); break;
+        case 'fx:diff':   if (loaded) setFxMode('diff');   spotlight('#fxCanvas', { label:'Frame diff active (move time!)' }); break;
+        case 'grid:thirds': setGridMode('thirds'); spotlight('#gridOl', { label:'Rule of thirds' }); break;
+        case 'grid:cross':  setGridMode('cross');  spotlight('#gridCross', { label:'Crosshair' }); break;
+        case 'grid:safe':   setGridMode('safe');   spotlight('#safeOl', { label:'Safe areas' }); break;
+        case 'edges':     if (loaded) { detectEdges(); spotlight('#fxCanvas', { label:'Edges (Sobel)' }); } break;
+        case 'ela':       if (loaded) { runEla().then(() => spotlight('#fxCanvas', { label:'ELA result' })); } break;
+        case 'bookmark':  if (loaded) { addBookmark(); spotlight('#bmList', { label:'Bookmark added' }); } break;
+        case 'clearFx':   if (loaded) { document.getElementById('clearFxBtn').click(); } break;
+      }
+      return;
+    }
+    if (a.target) {
+      const el = document.querySelector(a.target);
+      if (!el) return;
+      if (a.click) {
+        spotlight(a.target, { label:a.label, timeout:1200 });
+        setTimeout(() => el.click(), 250);
+      } else {
+        spotlight(a.target, { label:a.label, persist:false });
+      }
+    }
+  }, a.tab ? 250 : 0);
+}
+
+// ── Key Tutor ─────────────────────────────────────────────
+const KEY_MAP = {
+  ' ':           'Play / Pause',
+  ',':           'Frame back one frame',
+  '.':           'Frame forward one frame',
+  'ArrowLeft':   'Seek back 5 seconds',
+  'ArrowRight':  'Seek forward 5 seconds',
+  'b':           'Pin bookmark at current frame',
+  '?':           'Open / close this help',
+  'Escape':      'Close modals',
+  'z':           'Undo last draw stroke (Draw tab)',
+  '0':           'Fit video to viewport (with Cmd)',
+  '1':           '100% actual size (with Cmd)',
+  '=':           'Zoom in (with Cmd)',
+  '+':           'Zoom in (with Cmd)',
+  '-':           'Zoom out (with Cmd)',
+};
+function ktExplain(e) {
+  const wrap = document.getElementById('ktDisplay');
+  if (!wrap) return;
+  const k = e.key === ' ' ? ' ' : e.key;
+  const meaning = KEY_MAP[k] || KEY_MAP[k.toLowerCase()];
+  wrap.classList.remove('empty');
+  wrap.replaceChildren();
+  const chip = document.createElement('span');
+  chip.className = 'kt-key';
+  chip.textContent = k === ' ' ? 'Space' : (k.length === 1 ? k.toUpperCase() : k);
+  const desc = document.createElement('span');
+  desc.className = 'kt-meaning';
+  desc.textContent = meaning
+    ? meaning + (e.metaKey || e.ctrlKey ? ' (with Cmd/Ctrl)' : '')
+    : (e.key.length === 1 ? 'Unbound — try a known shortcut' : 'Modifier key only');
+  wrap.append(chip, desc);
+}
+let ktActive = false;
+document.addEventListener('keydown', e => {
+  if (!ktActive) return;
+  if (e.target.tagName === 'INPUT') return;
+  // Don't intercept ? since that toggles help
+  if (e.key === '?' || e.key === 'Escape') return;
+  e.preventDefault();
+  ktExplain(e);
+});
+
+// ── Guided Tour ────────────────────────────────────────────
+const TOUR_STEPS = [
+  { selector:'#openBtn',           label:'1/10 · Load a video here',                tab:null },
+  { selector:'.tab[data-t="inspect"]', label:'2/10 · Click Inspect for forensic tools', tab:null },
+  { selector:'#metaGrid',          label:'3/10 · Metadata: file, resolution, fps',  tab:'inspect' },
+  { selector:'#histCanvas',        label:'4/10 · Live RGB histogram',               tab:'inspect' },
+  { selector:'.mode-btn[data-fx="clip"]',   label:'5/10 · Clipping overlay (live)',        tab:'inspect' },
+  { selector:'.mode-btn[data-fx="false"]',  label:'6/10 · False color (live)',             tab:'inspect' },
+  { selector:'.mode-btn[data-grid="thirds"]', label:'7/10 · Composition grids',          tab:'inspect' },
+  { selector:'#edgeBtn',           label:'8/10 · Edges (Sobel) — single frame',     tab:'inspect' },
+  { selector:'#elaBtn',            label:'9/10 · ELA — tamper detection',           tab:'inspect' },
+  { selector:'#bmPinBtn',          label:'10/10 · Bookmark + Export PDF',           tab:'inspect' },
+];
+let tourIdx = -1;
+function tourNext() {
+  tourIdx++;
+  if (tourIdx >= TOUR_STEPS.length) { clearSpotlight(); tourIdx = -1; return; }
+  const s = TOUR_STEPS[tourIdx];
+  if (s.tab) switchTab(s.tab);
+  setTimeout(() => {
+    spotlight(s.selector, { label:s.label + '  (→ next, Esc cancel)', persist:true });
+  }, 200);
+}
+function startTour() {
+  tourIdx = -1;
+  tourNext();
+}
+document.addEventListener('keydown', e => {
+  if (tourIdx < 0) return;
+  if (e.key === 'Escape') { clearSpotlight(); tourIdx = -1; e.preventDefault(); return; }
+  if (e.key === 'ArrowRight' || e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    tourNext();
+  }
+});
+
+function buildHelp() {
+  // Tabs from unique categories preserving order
+  const cats = ['All', ...Array.from(new Set(HELP.map(h => h.cat)))];
+  helpTabs.replaceChildren();
+  cats.forEach(c => {
+    const b = document.createElement('button');
+    b.className = 'help-tab' + (c === helpCategory ? ' on' : '');
+    b.textContent = c;
+    b.addEventListener('click', () => { helpCategory = c; buildHelp(); filterHelp(); });
+    helpTabs.appendChild(b);
+  });
+  // Cards
+  helpBody.replaceChildren();
+  HELP.forEach((h, idx) => {
+    const card = document.createElement('div');
+    card.className = 'help-card';
+    card.dataset.cat = h.cat;
+    card.dataset.idx = idx;
+    // Title row
+    const title = document.createElement('h4');
+    const tt = document.createElement('span');
+    tt.textContent = h.title;
+    title.appendChild(tt);
+    if (h.keys && h.keys.length) {
+      h.keys.forEach(k => {
+        const kb = document.createElement('span');
+        kb.className = 'kbd';
+        kb.textContent = k;
+        title.appendChild(kb);
+      });
+    }
+    card.appendChild(title);
+    // Body — innerHTML is safe: all strings come from the HELP array we authored
+    const p = document.createElement('p');
+    p.innerHTML = h.body;
+    card.appendChild(p);
+    if (h.list && h.list.length) {
+      const ul = document.createElement('ul');
+      h.list.forEach(li => {
+        const liEl = document.createElement('li');
+        liEl.innerHTML = li;
+        ul.appendChild(liEl);
+      });
+      card.appendChild(ul);
+    }
+    (h.tips || []).forEach(t => {
+      const tip = document.createElement('div');
+      tip.className = 'tip';
+      tip.innerHTML = t;
+      card.appendChild(tip);
+    });
+    (h.warn || []).forEach(t => {
+      const w = document.createElement('div');
+      w.className = 'warn';
+      w.innerHTML = t;
+      card.appendChild(w);
+    });
+    // Key tutor live input
+    if (h.kt) {
+      const display = document.createElement('div');
+      display.className = 'kt-display empty';
+      display.id = 'ktDisplay';
+      display.textContent = 'Waiting for a keypress…';
+      card.appendChild(display);
+    }
+    // Try-it buttons
+    if (h.try && h.try.length) {
+      const row = document.createElement('div');
+      row.className = 'try-row';
+      h.try.forEach(a => {
+        const btn = document.createElement('button');
+        btn.className = 'try-btn' + (a.tour ? ' try-tour' : '');
+        btn.textContent = a.label;
+        if (a.requiresVideo && !loaded) {
+          btn.disabled = true;
+          btn.title = 'Needs a loaded video';
+        }
+        btn.addEventListener('click', () => doTryAction(a));
+        row.appendChild(btn);
+      });
+      card.appendChild(row);
+    }
+    helpBody.appendChild(card);
+  });
+}
+
+function filterHelp() {
+  const q = helpSearch.value.trim().toLowerCase();
+  let anyVisible = false;
+  helpBody.querySelectorAll('.help-card').forEach((card, i) => {
+    const h = HELP[+card.dataset.idx];
+    const inCat = helpCategory === 'All' || h.cat === helpCategory;
+    const haystack = (h.title + ' ' + h.body + ' ' + (h.list||[]).join(' ') + ' ' + (h.tips||[]).join(' ') + ' ' + (h.keys||[]).join(' ')).toLowerCase();
+    const inSearch = !q || haystack.includes(q);
+    const show = inCat && inSearch;
+    card.classList.toggle('hidden', !show);
+    if (show) anyVisible = true;
+  });
+  const existing = helpBody.querySelector('.help-empty');
+  if (!anyVisible && !existing) {
+    const empty = document.createElement('div');
+    empty.className = 'help-empty';
+    empty.textContent = 'No matches. Try a different word or tab.';
+    helpBody.appendChild(empty);
+  } else if (anyVisible && existing) {
+    existing.remove();
+  }
+}
+
+function openHelp() {
+  buildHelp();   // rebuild so requiresVideo states reflect current `loaded`
+  filterHelp();
+  helpModal.classList.add('open');
+  ktActive = true;
+  setTimeout(() => helpSearch.focus(), 0);
+}
+function closeHelp() {
+  helpModal.classList.remove('open');
+  ktActive = false;
+}
+
+helpBtn.addEventListener('click', openHelp);
+helpClose.addEventListener('click', closeHelp);
+helpModal.addEventListener('click', e => { if (e.target === helpModal) closeHelp(); });
+helpSearch.addEventListener('input', filterHelp);
+
+document.addEventListener('keydown', e => {
+  const inInput = e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA';
+  // Escape closes any modal we know about
+  if (e.key === 'Escape') {
+    if (helpModal.classList.contains('open')) { closeHelp(); return; }
+  }
+  if (inInput) return;
+  if (e.key === '?' || (e.key === '/' && e.shiftKey)) {
+    e.preventDefault();
+    if (helpModal.classList.contains('open')) closeHelp(); else openHelp();
+  }
+});
+
+buildHelp();
+</script>
+</body>
+</html>
