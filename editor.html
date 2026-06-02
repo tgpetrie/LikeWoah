@@ -2,7 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0d0d0d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
 <title>VideoEdit</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -706,6 +711,62 @@ input[type=range]::-webkit-slider-thumb{
 ::-webkit-scrollbar-thumb{background:#383838;border-radius:3px}
 
 #xcanvas{display:none}
+
+/* ── Touch / mobile-friendly layout ─────────────────────── */
+/* Prevent browser's default 300ms tap delay + double-tap zoom on UI */
+button, .tab, .tool-btn, .ratio-btn, .mode-btn, .cswatch,
+.bm-row, .help-tab, .try-btn, .sel-act, input[type="range"], input[type="checkbox"] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+/* The video preview area: own gestures, no browser zoom */
+.preview, .vwrap, #drawCanvas, #lassoCanvas, #fxCanvas, .tline {
+  touch-action: none;
+}
+
+/* On narrow screens (phones, portrait tablets) collapse to stacked layout */
+@media (max-width: 760px) {
+  body { font-size: 13px; }
+  .main { flex-direction: column; }
+  .sidebar {
+    width: 100%; max-height: 45vh; min-height: 200px;
+    border-right: none; border-bottom: 1px solid var(--border);
+  }
+  .center { flex: 1; min-height: 0; }
+  .preview { min-height: 220px; }
+  /* Bigger touch targets */
+  .tab { padding: 14px 0; font-size: 12px; }
+  .tool-btn { padding: 11px 4px; min-height: 44px; font-size: 11px; }
+  .cswatch { width: 32px; height: 32px; }
+  .step-btn { width: 38px; height: 38px; }
+  .play-btn { width: 44px; height: 44px; }
+  .ratio-btn { padding: 12px 4px; min-height: 40px; }
+  .mode-btn { padding: 12px 6px; min-height: 40px; }
+  .btn { padding: 10px 12px; font-size: 13px; min-height: 38px; }
+  .btn-sm { padding: 7px 10px; min-height: 32px; }
+  .tline { height: 8px; }
+  .tline-thumb { width: 18px; height: 18px; }
+  /* HUD shouldn't overlap content on small screens */
+  .zoom-hud { bottom: 8px; left: 8px; padding: 4px 8px; }
+  .zhbtn { width: 32px; height: 32px; font-size: 16px; }
+  /* Modal close & search bigger on touch */
+  .help-search { padding: 10px 12px; font-size: 14px; }
+  .help-tab { padding: 12px 14px; font-size: 13px; }
+  .try-btn { padding: 10px 16px; font-size: 13px; }
+}
+
+/* On very narrow screens, give the help modal full width */
+@media (max-width: 480px) {
+  .help-modal { width: 100vw; max-height: 92vh; border-radius: 0; }
+  .help-head { padding: 12px 14px; }
+  .help-body { padding: 12px 14px; }
+}
+
+/* Allow safe-area insets on devices with notches */
+@supports (padding: max(0px)) {
+  header { padding-left: max(14px, env(safe-area-inset-left)); padding-right: max(14px, env(safe-area-inset-right)); }
+  .cbar  { padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+}
 </style>
 </head>
 <body>
@@ -867,6 +928,9 @@ input[type=range]::-webkit-slider-thumb{
         <div class="draw-actions" style="margin-top:6px">
           <button class="btn btn-ghost" id="lassoSave" style="flex:1" disabled>Save</button>
           <button class="btn btn-accent" id="lassoAnalyze" style="flex:1" disabled>Analyze Selection</button>
+        </div>
+        <div class="draw-actions" style="margin-top:6px">
+          <button class="btn btn-ghost" id="lassoTrack" style="flex:1" disabled>Track Object (2s)</button>
         </div>
         <div class="lasso-note">Selections are stored separately from drawings. Save above to keep a region in the library; Analyze jumps to the Motion Analyzer and runs <i>inside the selection</i>.</div>
       </div>
@@ -1593,6 +1657,8 @@ function updateLassoUI() {
   bm.disabled   = !hasSel || !loaded;
   if (save) save.disabled = !hasSel;
   if (ana)  ana.disabled  = !hasSel || !loaded;
+  const trk = document.getElementById('lassoTrack');
+  if (trk) trk.disabled = !hasSel || !loaded;
   if (lassoPath) {
     pill.style.display = 'inline-block';
     pill.textContent = `${lassoPath.points.length} pts`;
@@ -1702,6 +1768,165 @@ document.getElementById('lassoAnalyze').addEventListener('click', () => {
     document.getElementById('motAnalyzeBtn').click();
   }, 250);
 });
+
+// ── Object Tracking ───────────────────────────────────────
+// Template-match approach: sample a small patch at the centroid of the
+// current lasso, then on each subsequent video frame find the patch in a
+// search window with the lowest sum-squared-difference. Translate the
+// lasso to follow. Run while the video plays for up to TRACK_DURATION
+// seconds, then stop and snap the lasso back to its original anchor.
+
+const TRACK_DURATION = 2.0; // seconds
+let trackState = null; // { template, tplW, tplH, originalPoints, anchorCenter, startTime, originalSnapshot }
+
+function getLassoCenter(pts) {
+  let cx = 0, cy = 0;
+  for (const p of pts) { cx += p.x; cy += p.y; }
+  return { x: cx / pts.length, y: cy / pts.length };
+}
+
+function sampleTemplate() {
+  // Sample a square patch around the lasso centroid at native video resolution
+  const center = getLassoCenter(lassoPath.points);
+  const dw = lassoCanvas.width, dh = lassoCanvas.height;
+  const VW = vid.videoWidth, VH = vid.videoHeight;
+  // Convert centroid display coords -> video coords
+  const vcx = Math.round(center.x / dw * VW);
+  const vcy = Math.round(center.y / dh * VH);
+  // Determine patch size: ~12% of min dimension, clamped 32-96
+  const tplSize = Math.max(32, Math.min(96, Math.round(Math.min(VW, VH) * 0.12)));
+  const half = tplSize >> 1;
+  const x0 = Math.max(0, vcx - half);
+  const y0 = Math.max(0, vcy - half);
+  const x1 = Math.min(VW, x0 + tplSize);
+  const y1 = Math.min(VH, y0 + tplSize);
+  const w = x1 - x0, h = y1 - y0;
+
+  const tmp = document.createElement('canvas');
+  tmp.width = VW; tmp.height = VH;
+  const tctx = tmp.getContext('2d');
+  tctx.drawImage(vid, 0, 0);
+  const tpl = tctx.getImageData(x0, y0, w, h).data;
+  // Convert to luminance for cheap matching (1 channel)
+  const lum = new Uint8Array(w * h);
+  for (let i = 0, p = 0; i < tpl.length; i += 4, p++) {
+    lum[p] = (0.299 * tpl[i] + 0.587 * tpl[i+1] + 0.114 * tpl[i+2]) | 0;
+  }
+  return {
+    lum, w, h,
+    centerInVideo: { x: vcx, y: vcy },
+    tmpCanvas: tmp, tmpCtx: tctx,
+    VW, VH, dw, dh,
+  };
+}
+
+// Search a +/-S pixel window around expected center for best SSD match
+function matchTemplate(tpl, expectedVx, expectedVy, searchRadius) {
+  const { lum, w, h, VW, VH, tmpCtx } = tpl;
+  // Draw current frame into the tmp canvas
+  tmpCtx.drawImage(vid, 0, 0);
+  // Search bounds (top-left of patch)
+  const xMin = Math.max(0, expectedVx - (w>>1) - searchRadius);
+  const yMin = Math.max(0, expectedVy - (h>>1) - searchRadius);
+  const xMax = Math.min(VW - w, expectedVx - (w>>1) + searchRadius);
+  const yMax = Math.min(VH - h, expectedVy - (h>>1) + searchRadius);
+  if (xMax < xMin || yMax < yMin) return null;
+  // Grab a wider region once
+  const regW = xMax - xMin + w;
+  const regH = yMax - yMin + h;
+  const reg = tmpCtx.getImageData(xMin, yMin, regW, regH).data;
+  // Convert region to luminance
+  const regLum = new Uint8Array(regW * regH);
+  for (let i = 0, p = 0; i < reg.length; i += 4, p++) {
+    regLum[p] = (0.299 * reg[i] + 0.587 * reg[i+1] + 0.114 * reg[i+2]) | 0;
+  }
+  // Step every 2 pixels for speed
+  const STEP = 2;
+  let bestSSD = Infinity, bestX = expectedVx, bestY = expectedVy;
+  for (let dy = 0; dy <= regH - h; dy += STEP) {
+    for (let dx = 0; dx <= regW - w; dx += STEP) {
+      let ssd = 0;
+      // Subsample rows of template (every 2nd row + col) for ~4× speedup
+      for (let y = 0; y < h; y += 2) {
+        const rIdx = (dy + y) * regW + dx;
+        const tIdx = y * w;
+        for (let x = 0; x < w; x += 2) {
+          const d = regLum[rIdx + x] - lum[tIdx + x];
+          ssd += d * d;
+        }
+      }
+      if (ssd < bestSSD) {
+        bestSSD = ssd;
+        bestX = xMin + dx + (w>>1);
+        bestY = yMin + dy + (h>>1);
+      }
+    }
+  }
+  // Confidence: lower SSD = better. Normalize by patch area & 255²
+  const pixelCount = (w >> 1) * (h >> 1);
+  const meanSSD = bestSSD / pixelCount;
+  const confidence = Math.max(0, 1 - meanSSD / 1500); // empirical scale
+  return { vx: bestX, vy: bestY, confidence };
+}
+
+function startTracking() {
+  if (!lassoPath || !lassoPath.closed) return;
+  if (trackState) stopTracking();
+  // Snapshot original lasso so we can restore on stop
+  const originalPoints = lassoPath.points.map(p => ({ x: p.x, y: p.y }));
+  const tpl = sampleTemplate();
+  trackState = {
+    tpl,
+    originalPoints,
+    anchorCenter: getLassoCenter(originalPoints),
+    startTime: vid.currentTime,
+    rafId: null,
+  };
+  // Start playing if paused
+  if (vid.paused) vid.play().catch(()=>{});
+  setPlaying(true);
+  trackLoop();
+  showToast(`Tracking object for ${TRACK_DURATION}s — stopping at confidence drop or end`);
+}
+
+function trackLoop() {
+  if (!trackState) return;
+  const elapsed = vid.currentTime - trackState.startTime;
+  if (elapsed >= TRACK_DURATION || vid.ended) {
+    stopTracking();
+    return;
+  }
+  const { tpl, anchorCenter } = trackState;
+  // Use last known video center as the seed, otherwise the anchor
+  const seedV = trackState.lastVCenter || tpl.centerInVideo;
+  const m = matchTemplate(tpl, seedV.x, seedV.y, 32);
+  if (!m || m.confidence < 0.15) {
+    stopTracking();
+    return;
+  }
+  trackState.lastVCenter = { x: m.vx, y: m.vy };
+  // Translate lasso so its centroid is at the matched video-pixel center
+  const dx_display = (m.vx - tpl.centerInVideo.x) / tpl.VW * tpl.dw;
+  const dy_display = (m.vy - tpl.centerInVideo.y) / tpl.VH * tpl.dh;
+  lassoPath.points = trackState.originalPoints.map(p => ({
+    x: p.x + dx_display,
+    y: p.y + dy_display,
+  }));
+  drawLasso();
+  trackState.rafId = requestAnimationFrame(trackLoop);
+}
+
+function stopTracking() {
+  if (!trackState) return;
+  if (trackState.rafId) cancelAnimationFrame(trackState.rafId);
+  // Restore the original lasso position
+  lassoPath.points = trackState.originalPoints;
+  drawLasso();
+  trackState = null;
+  showToast('Tracking stopped — lasso restored');
+}
+
+document.getElementById('lassoTrack').addEventListener('click', startTracking);
 
 // Enter closes a polygonal lasso; Esc cancels it
 document.addEventListener('keydown', e => {
@@ -2281,6 +2506,130 @@ document.addEventListener('mouseup', e => {
     isPanning = false;
     preview.classList.remove('panning');
   }
+});
+
+// ── Touch gestures (Android / iPad / phone) ───────────────
+// One finger on the preview = pan
+// Two fingers = pinch-to-zoom centered between the touches
+// One finger on the timeline = scrub
+// One finger on the draw canvas (when Draw tab open) = draw / lasso
+let touchPan = null;       // { startX, startY, startPanX, startPanY }
+let pinchState = null;     // { startDist, startZoom, centerX, centerY, startPanX, startPanY }
+
+function touchDist(t1, t2) {
+  return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+}
+function touchMid(t1, t2) {
+  return { x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 };
+}
+
+preview.addEventListener('touchstart', e => {
+  if (!loaded) return;
+  // Drawing/lasso/wand take precedence — let drawCanvas handle them
+  if (drawTabOpen && (drawTool === 'lasso' || drawTool === 'wand' || drawTool === 'highlighter' || drawTool === 'pencil' || drawTool === 'eraser')) return;
+  if (e.touches.length === 2) {
+    e.preventDefault();
+    const [a, b] = [e.touches[0], e.touches[1]];
+    const mid = touchMid(a, b);
+    pinchState = {
+      startDist: touchDist(a, b),
+      startZoom: zoom,
+      centerX: mid.x, centerY: mid.y,
+      startPanX: panX, startPanY: panY,
+    };
+    touchPan = null;
+  } else if (e.touches.length === 1 && !pinchState) {
+    const t = e.touches[0];
+    touchPan = {
+      startX: t.clientX, startY: t.clientY,
+      startPanX: panX, startPanY: panY,
+      startedAt: performance.now(),
+    };
+  }
+}, { passive: false });
+
+preview.addEventListener('touchmove', e => {
+  if (e.touches.length === 2 && pinchState) {
+    e.preventDefault();
+    const [a, b] = [e.touches[0], e.touches[1]];
+    const d = touchDist(a, b);
+    const scale = d / pinchState.startDist;
+    const newZoom = Math.max(0.05, Math.min(20, pinchState.startZoom * scale));
+    // Zoom centered on the original midpoint
+    zoomAt(pinchState.centerX, pinchState.centerY, newZoom);
+  } else if (e.touches.length === 1 && touchPan && !pinchState) {
+    e.preventDefault();
+    const t = e.touches[0];
+    panX = touchPan.startPanX + (t.clientX - touchPan.startX);
+    panY = touchPan.startPanY + (t.clientY - touchPan.startY);
+    applyViewTransform();
+  }
+}, { passive: false });
+
+preview.addEventListener('touchend', e => {
+  if (e.touches.length < 2) pinchState = null;
+  if (e.touches.length === 0) {
+    // If it was a brief tap (no drag), treat as play/pause
+    if (touchPan && performance.now() - touchPan.startedAt < 200) {
+      const dx = Math.abs((e.changedTouches[0]?.clientX || 0) - touchPan.startX);
+      const dy = Math.abs((e.changedTouches[0]?.clientY || 0) - touchPan.startY);
+      if (dx < 8 && dy < 8) togglePlayback();
+    }
+    touchPan = null;
+  }
+});
+
+// Touch scrubbing on the timeline
+tline.addEventListener('touchstart', e => {
+  if (!vid.duration || !e.touches.length) return;
+  e.preventDefault();
+  const r = tline.getBoundingClientRect();
+  const x = e.touches[0].clientX - r.left;
+  vid.currentTime = Math.max(0, Math.min(vid.duration, x / r.width * vid.duration));
+}, { passive: false });
+tline.addEventListener('touchmove', e => {
+  if (!vid.duration || !e.touches.length) return;
+  e.preventDefault();
+  const r = tline.getBoundingClientRect();
+  const x = e.touches[0].clientX - r.left;
+  vid.currentTime = Math.max(0, Math.min(vid.duration, x / r.width * vid.duration));
+}, { passive: false });
+
+// Touch drawing/lasso on the draw canvas
+function touchToCanvasPos(touch) {
+  // Reuse the same coord-translation as canvasPos but for a touch object
+  return canvasPos({ clientX: touch.clientX, clientY: touch.clientY });
+}
+drawCanvas.addEventListener('touchstart', e => {
+  if (!drawTabOpen) return;
+  if (e.touches.length !== 1) return; // 2-finger = pinch on preview
+  e.preventDefault();
+  const pt = touchToCanvasPos(e.touches[0]);
+  if (drawTool === 'lasso') { lassoMouseDown(pt, e); return; }
+  if (drawTool === 'wand')  { magicWand(pt, e); return; }
+  isDrawing = true;
+  curStroke = {
+    tool: drawTool, color: drawColor,
+    width: drawSize, opacity: drawTool === 'highlighter' ? drawOpacity : 100,
+    points: [pt]
+  };
+  redrawStrokes();
+}, { passive: false });
+drawCanvas.addEventListener('touchmove', e => {
+  if (e.touches.length !== 1) return;
+  e.preventDefault();
+  const pt = touchToCanvasPos(e.touches[0]);
+  if (lassoDrawing) { extendLasso(pt); return; }
+  if (drawTabOpen && drawTool === 'lasso' && lassoPath && !lassoPath.closed) {
+    lassoHover = pt; startLassoLoop(); return;
+  }
+  if (!isDrawing || !curStroke) return;
+  curStroke.points.push(pt);
+  redrawStrokes();
+}, { passive: false });
+drawCanvas.addEventListener('touchend', e => {
+  if (lassoDrawing) { lassoMouseUp(); return; }
+  if (isDrawing) endStroke();
 });
 
 // ── Crop ──────────────────────────────────────────────────────────
@@ -4397,6 +4746,13 @@ document.addEventListener('keydown', e => {
 });
 
 buildHelp();
+
+// ── PWA service worker registration ───────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {/* silent: opening via file:// won't register */});
+  });
+}
 </script>
 </body>
 </html>

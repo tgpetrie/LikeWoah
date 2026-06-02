@@ -1,0 +1,23 @@
+{
+  "appId": "com.tgpetrie.videoedit",
+  "appName": "VideoEdit",
+  "webDir": ".",
+  "bundledWebRuntime": false,
+  "loggingBehavior": "production",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 600,
+      "backgroundColor": "#0d0d0d",
+      "androidScaleType": "CENTER_CROP",
+      "showSpinner": false
+    }
+  }
+}
