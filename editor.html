@@ -729,6 +729,74 @@ input[type=range]::-webkit-slider-thumb{
 
 #xcanvas{display:none}
 
+/* ── Natural-language command bar ─────────────────────── */
+.cmd-bar{
+  position:fixed; left:50%; transform:translateX(-50%);
+  bottom:96px; z-index:250;
+  display:flex; align-items:center; gap:6px;
+  background:rgba(10,10,10,.92);
+  border:1px solid var(--border);
+  border-radius:24px; padding:6px 8px 6px 14px;
+  box-shadow:0 8px 24px rgba(0,0,0,.55);
+  backdrop-filter:blur(8px);
+  min-width:360px; max-width:min(640px, 92vw);
+  opacity:0; pointer-events:none; transition:opacity .15s, transform .15s;
+}
+.cmd-bar.show{ opacity:1; pointer-events:auto; transform:translateX(-50%) translateY(0); }
+.cmd-bar.hidden{ transform:translateX(-50%) translateY(20px); }
+.cmd-input{
+  flex:1; background:none; border:none; outline:none;
+  color:var(--text); font-size:13px; font-family:inherit;
+  padding:6px 4px; min-width:0;
+}
+.cmd-input::placeholder{ color:var(--muted); font-style:italic; }
+.cmd-mic{
+  width:32px; height:32px; border-radius:50%;
+  background:var(--panel2); border:1px solid var(--border);
+  color:var(--text); cursor:pointer; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  transition:all .15s;
+}
+.cmd-mic:hover{ border-color:var(--accent); color:var(--accent); }
+.cmd-mic.listening{
+  background:#3a1818; border-color:#e07050; color:#e07050;
+  animation:cmd-pulse 1.2s ease-in-out infinite;
+}
+@keyframes cmd-pulse{
+  0%,100%{ box-shadow:0 0 0 0 rgba(224,112,80,.4); }
+  50%    { box-shadow:0 0 0 8px rgba(224,112,80,0); }
+}
+.cmd-mic svg{ width:16px; height:16px; }
+.cmd-go{
+  width:32px; height:32px; border-radius:50%;
+  background:var(--accent); border:none; color:#0a2019;
+  font-weight:600; cursor:pointer; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  font-size:14px;
+}
+.cmd-go:hover{ filter:brightness(1.08); }
+.cmd-go:disabled{ opacity:.4; cursor:not-allowed; }
+.cmd-feedback{
+  position:absolute; left:14px; right:14px;
+  bottom:calc(100% + 6px);
+  background:#0e1f17; border:1px solid var(--accent);
+  border-radius:8px; padding:7px 11px;
+  font-size:11px; color:#bde8c8;
+  opacity:0; transition:opacity .2s;
+  pointer-events:none;
+}
+.cmd-feedback.show{ opacity:1; }
+.cmd-feedback.error{ background:#231414; border-color:#e07050; color:#f1c7b6; }
+.cmd-feedback b{ color:var(--accent); font-weight:600; }
+.cmd-feedback.error b{ color:#ffb098; }
+.cmd-toggle-hint{
+  position:fixed; bottom:14px; right:14px;
+  background:var(--panel2); border:1px solid var(--border);
+  color:var(--muted); font-size:10px; padding:4px 8px;
+  border-radius:4px; pointer-events:none; opacity:.6;
+  font-family:monospace; z-index:240;
+}
+
 /* Desktop build: minimal touch-action hints so trackpads behave,
    but no phone responsive layout (use mobile.html for that). */
 .preview, .vwrap, #drawCanvas, #lassoCanvas, #fxCanvas { touch-action: none; }
@@ -1184,6 +1252,17 @@ button, .tab { -webkit-tap-highlight-color: transparent; }
   Touch device detected — open the Mobile build →
   <small>Tap here, or stay on desktop</small>
 </a>
+
+<!-- Natural-language command bar -->
+<div class="cmd-bar hidden" id="cmdBar">
+  <div class="cmd-feedback" id="cmdFeedback"></div>
+  <button class="cmd-mic" id="cmdMic" title="Speak a command (Web Speech API)">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>
+  </button>
+  <input type="text" class="cmd-input" id="cmdInput" placeholder='Try: "go to 4:20" · "bookmark this" · "save from 4:20 to 6:18"' autocomplete="off">
+  <button class="cmd-go" id="cmdGo" title="Run command (Enter)">▸</button>
+</div>
+<div class="cmd-toggle-hint" id="cmdToggleHint">Press <b style="color:var(--accent)">/</b> for commands</div>
 
 <div class="toast" id="toast"></div>
 <input type="file" id="fileIn" accept="video/*,.mp4,.mov,.m4v,.webm,.mkv,.avi,.ogg,.ogv,.ts,.mts,.m2ts" style="display:none">
@@ -4169,6 +4248,484 @@ exportBtn.addEventListener('click', () => {
   setPlaying(true);
 });
 
+// ── Clip a video section to WebM ──────────────────────────
+// New feature: record the range [startSec, endSec] only, then download.
+// Used by the natural-language "save section" command AND can be wired
+// to a UI button.
+async function saveSection(startSec, endSec, filename) {
+  if (!loaded) { showToast('Load a video first'); return; }
+  if (!isFinite(startSec) || !isFinite(endSec)) { showToast('Need start and end times'); return; }
+  startSec = Math.max(0, Math.min(vid.duration, startSec));
+  endSec   = Math.max(0, Math.min(vid.duration, endSec));
+  if (endSec <= startSec) { showToast('End time must be after start time'); return; }
+
+  showToast(`Clipping ${fmt(startSec)} → ${fmt(endSec)} (${(endSec-startSec).toFixed(1)}s)…`);
+
+  const xc = document.createElement('canvas');
+  xc.width  = vid.videoWidth;
+  xc.height = vid.videoHeight;
+  const xctx = xc.getContext('2d');
+
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+  }
+  let audioTracks = [];
+  if (audioCtx) {
+    try {
+      if (!audioSrc) audioSrc = audioCtx.createMediaElementSource(vid);
+      audioSrc.connect(audioCtx.destination);
+      const audioDest = audioCtx.createMediaStreamDestination();
+      audioSrc.connect(audioDest);
+      audioTracks = audioDest.stream.getTracks();
+    } catch(e) {}
+  }
+  const combined = new MediaStream([
+    ...xc.captureStream(30).getTracks(),
+    ...audioTracks,
+  ]);
+  const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
+    ? 'video/webm;codecs=vp9,opus' : 'video/webm';
+  const rec = new MediaRecorder(combined, { mimeType: mime, videoBitsPerSecond: 6_000_000 });
+  const chunks = [];
+  rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+
+  const savedTime = vid.currentTime;
+  const wasPaused = vid.paused;
+
+  const finished = new Promise(resolve => {
+    rec.onstop = () => {
+      const blob = new Blob(chunks, { type: 'video/webm' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url;
+      const base = (window._lastFileName || 'video').replace(/\.[^.]+$/, '');
+      a.download = filename || `${base}_${fmt(startSec).replace(':','m')}-${fmt(endSec).replace(':','m')}.webm`;
+      a.click();
+      URL.revokeObjectURL(url);
+      // rAF-based tick stops itself via the `stopped` flag and cancelAnimationFrame
+      vid.currentTime = savedTime;
+      if (wasPaused) vid.pause();
+      setPlaying(!wasPaused);
+      showToast(`Saved clip: ${a.download}`);
+      resolve();
+    };
+  });
+
+  // Drive the canvas with setInterval (33ms ≈ 30fps) so every frame is
+  // captured even when the page is backgrounded or rendered headlessly
+  // (where requestAnimationFrame can be throttled to 0 fps).
+  let intervalId = null;
+  let stopped = false;
+  function tick() {
+    if (stopped) return;
+    try {
+      xctx.filter = filterStr || 'none';
+      xctx.drawImage(vid, 0, 0);
+      xctx.filter = 'none';
+      if (strokes && strokes.length) {
+        strokes.forEach(s => renderStroke(xctx, s, xc.width, xc.height));
+      }
+    } catch (e) { /* video might not be ready */ }
+    if (vid.currentTime >= endSec || vid.ended) {
+      stopped = true;
+      vid.pause();
+      if (intervalId) clearInterval(intervalId);
+      intervalId = null;
+      try { rec.stop(); } catch(e) {}
+    }
+  }
+  vid.currentTime = startSec;
+  await new Promise(res => vid.addEventListener('seeked', res, { once: true }));
+  rec.start(100);
+  await vid.play().catch(()=>{});
+  setPlaying(true);
+  intervalId = setInterval(tick, 33);
+  // Safety net: hard timeout at duration + 2 sec
+  setTimeout(() => {
+    if (!stopped) {
+      stopped = true;
+      vid.pause();
+      if (intervalId) clearInterval(intervalId);
+      try { rec.stop(); } catch(e) {}
+    }
+  }, ((endSec - startSec) * 1000) + 2000);
+  return finished;
+}
+
+// ── Time-expression parser ────────────────────────────────
+const WORD_NUMBERS = {
+  zero:0, one:1, two:2, three:3, four:4, five:5, six:6, seven:7, eight:8, nine:9,
+  ten:10, eleven:11, twelve:12, thirteen:13, fourteen:14, fifteen:15,
+  sixteen:16, seventeen:17, eighteen:18, nineteen:19, twenty:20, thirty:30,
+  forty:40, fifty:50, sixty:60,
+  half:30, quarter:15,
+};
+function wordToNum(w) {
+  w = w.toLowerCase().trim();
+  if (/^\d+$/.test(w)) return parseInt(w, 10);
+  if (WORD_NUMBERS[w] !== undefined) return WORD_NUMBERS[w];
+  const parts = w.replace(/-/g, ' ').split(/\s+/);
+  if (parts.length === 2 && WORD_NUMBERS[parts[0]] && WORD_NUMBERS[parts[1]]) {
+    return WORD_NUMBERS[parts[0]] + WORD_NUMBERS[parts[1]];
+  }
+  return null;
+}
+
+function parseTime(str) {
+  if (!str) return null;
+  const raw = str.toString().trim().toLowerCase();
+
+  // Strip filler FIRST so patterns can match on the cleaned form.
+  const cleaned = raw
+    .replace(/^(?:at\s+|the\s+|to\s+|on\s+)/g, '')
+    .replace(/^(?:the\s+)/g, '')
+    .replace(/\s+mark\s*$/g, '')
+    .replace(/\s+point\s*$/g, '')
+    .replace(/\s+/g, ' ').trim();
+
+  if (cleaned === 'start' || cleaned === 'beginning') return 0;
+  if (cleaned === 'end' || cleaned === 'finish') return vid.duration || 0;
+  if (cleaned === 'half' || cleaned === 'middle' || cleaned === 'halfway') return (vid.duration || 0) / 2;
+
+  const fm = cleaned.match(/^(?:frame|f)\s*#?\s*(\d+)$/);
+  if (fm) return parseInt(fm[1], 10) / (estimatedFPS || 30);
+
+  // HH:MM:SS / MM:SS — now runs after cleanup
+  const colon = cleaned.match(/^(\d+):(\d{1,2})(?::(\d{1,2}))?(?:\.(\d+))?$/);
+  if (colon) {
+    let h=0, m=0, sec=0;
+    if (colon[3] !== undefined) { h = +colon[1]; m = +colon[2]; sec = +colon[3]; }
+    else { m = +colon[1]; sec = +colon[2]; }
+    if (colon[4]) sec += parseFloat('0.' + colon[4]);
+    return h*3600 + m*60 + sec;
+  }
+
+  // Unit-based: "4 minutes 20 seconds", "1h 30m"
+  let totalSec = null, anyMatch = false;
+  let lastMatchEnd = 0;
+  // Two number alternatives: digits (no word-boundary needed, "30s" works)
+  // OR word-numbers ending on a whole-word boundary (prevents "two minutes"
+  // from being split into "two minute" + "s" unit).
+  // Captures: [1] = digit number, [2] = word number — exactly one will be set.
+  const unitRe = /(?:(\d+(?:\.\d+)?)|([a-z]+(?:[\s-][a-z]+)?)\b)\s*(hours?|hrs?|h\b|minutes?|mins?|m\b|seconds?|secs?|s\b)/gi;
+  let mm;
+  while ((mm = unitRe.exec(cleaned)) !== null) {
+    const numTok = mm[1] || mm[2];
+    const n = wordToNum(numTok) ?? parseFloat(numTok);
+    if (n == null || isNaN(n)) continue;
+    const u = mm[3].toLowerCase();
+    let mult = 0;
+    if (/^(hours?|hrs?|h)$/.test(u)) mult = 3600;
+    else if (/^(minutes?|mins?|m)$/.test(u)) mult = 60;
+    else if (/^(seconds?|secs?|s)$/.test(u)) mult = 1;
+    if (mult) {
+      totalSec = (totalSec || 0) + n * mult;
+      anyMatch = true;
+      lastMatchEnd = unitRe.lastIndex;
+    }
+  }
+  // After unit matches, look for a trailing bare number / word-number
+  // ("two minutes thirty", "1m 20") and treat it as seconds.
+  if (anyMatch) {
+    const tail = cleaned.slice(lastMatchEnd).trim().replace(/^and\s+/, '');
+    if (tail) {
+      const n = wordToNum(tail) ?? parseFloat(tail);
+      if (n !== null && !isNaN(n)) totalSec += n;
+    }
+    return totalSec;
+  }
+
+  // Bare number → seconds
+  const bare = cleaned.match(/^(\d+(?:\.\d+)?)$/);
+  if (bare) return parseFloat(bare[1]);
+
+  // "two thirty" → minutes:seconds
+  const compound = cleaned.match(/^([a-z]+(?:[\s-][a-z]+)?)\s+([a-z]+(?:[\s-][a-z]+)?)$/);
+  if (compound) {
+    const a = wordToNum(compound[1]); const b = wordToNum(compound[2]);
+    if (a !== null && b !== null) return a * 60 + b;
+  }
+
+  return null;
+}
+
+// ── Natural-language command parser ───────────────────────
+function normalizeCmd(s) {
+  return s.toLowerCase()
+    .replace(/[?!.]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .replace(/please/g, '')
+    .replace(/^(hey|ok|okay|yo|computer|videoedit)[,\s]+/g, '')
+    .trim();
+}
+
+// ──────────────────────────────────────────────────────────
+// USER ALIASES — edit this map to add your own natural phrasings.
+// Each key is a verb you'd actually say; value is a canonical action.
+// TODO (user): add your own. e.g. "snip": "clip", "tag": "pin"
+// ──────────────────────────────────────────────────────────
+const ALIASES = {
+  'go':'seek','jump':'seek','seek':'seek','navigate':'seek','move':'seek','scrub':'seek',
+  'bookmark':'pin','pin':'pin','mark':'pin','flag':'pin','note':'pin',
+  'save':'clip','clip':'clip','record':'clip','extract':'clip','export':'clip','trim':'clip','cut':'clip','grab':'clip',
+};
+
+const COMMAND_RULES = [
+  {
+    re: /^(?:save|clip|record|extract|trim|cut|grab)\s+(?:the\s+)?(?:section|clip|part|segment|range)?\s*(?:from\s+)?(.+?)\s+(?:to|until|through|-)\s+(.+?)(?:\s+(?:and\s+(?:save|export)|as.*))?$/i,
+    label: (m) => `Clip ${m[1]} → ${m[2]}`,
+    run: (m) => {
+      const start = parseTime(m[1]); const end = parseTime(m[2]);
+      if (start === null || end === null) return { ok:false, err:`Couldn't parse times "${m[1]}" → "${m[2]}"` };
+      saveSection(start, end);
+      return { ok:true, msg:`Recording ${fmt(start)} → ${fmt(end)}` };
+    }
+  },
+  {
+    re: /^(?:at|from)\s+(?:the\s+)?(.+?)\s+(?:mark|point)?\s*(?:record|clip|save|capture)\s+(?:the\s+)?(?:section|part)?\s*(?:until|to|through)\s+(.+?)(?:\s+and\s+save.*)?$/i,
+    label: (m) => `Clip ${m[1]} → ${m[2]}`,
+    run: (m) => {
+      const start = parseTime(m[1]); const end = parseTime(m[2]);
+      if (start === null || end === null) return { ok:false, err:`Couldn't parse times "${m[1]}" → "${m[2]}"` };
+      saveSection(start, end);
+      return { ok:true, msg:`Recording ${fmt(start)} → ${fmt(end)}` };
+    }
+  },
+  {
+    re: /^(?:go|jump|seek|navigate|move|scrub)\s+(?:to\s+)?(?:the\s+)?(.+?)(?:\s+mark)?$/i,
+    label: (m) => `Seek to ${m[1]}`,
+    run: (m) => {
+      const t = parseTime(m[1]);
+      if (t === null) return { ok:false, err:`Couldn't parse "${m[1]}" as a time` };
+      vid.currentTime = t;
+      return { ok:true, msg:`Seeked to ${fmt(t)}` };
+    }
+  },
+  {
+    re: /^(?:skip|forward|fast forward|ff)\s+(.+)$/i,
+    label: (m) => `Skip +${m[1]}`,
+    run: (m) => {
+      const t = parseTime(m[1]);
+      if (t === null) return { ok:false, err:`Couldn't parse "${m[1]}"` };
+      vid.currentTime = Math.min(vid.duration, vid.currentTime + t);
+      return { ok:true };
+    }
+  },
+  {
+    re: /^(?:back|rewind|reverse|go back)\s+(.+)$/i,
+    label: (m) => `Rewind ${m[1]}`,
+    run: (m) => {
+      const t = parseTime(m[1]);
+      if (t === null) return { ok:false, err:`Couldn't parse "${m[1]}"` };
+      vid.currentTime = Math.max(0, vid.currentTime - t);
+      return { ok:true };
+    }
+  },
+  { re: /^(?:play|resume|start)$/i,           label: () => 'Play',    run: () => { vid.play(); setPlaying(true); return { ok:true }; } },
+  { re: /^(?:pause|stop|hold|wait)$/i,        label: () => 'Pause',   run: () => { vid.pause(); setPlaying(false); return { ok:true }; } },
+  { re: /^(?:toggle|toggle play|play pause)$/i, label: () => 'Toggle', run: () => { togglePlayback(); return { ok:true }; } },
+  { re: /^(?:next|forward) frame$/i,          label: () => 'Next frame',    run: () => { stepFrame(1); return { ok:true }; } },
+  { re: /^(?:previous|prev|back|last) frame$/i, label: () => 'Previous frame', run: () => { stepFrame(-1); return { ok:true }; } },
+  {
+    re: /^(?:bookmark|pin|mark|flag|note)(?:\s+this(?:\s+frame)?)?(?:\s+(?:at|@)\s+(.+))?$/i,
+    label: (m) => m[1] ? `Pin at ${m[1]}` : 'Pin current frame',
+    run: (m) => {
+      if (m[1]) {
+        const t = parseTime(m[1]);
+        if (t === null) return { ok:false, err:`Couldn't parse "${m[1]}"` };
+        vid.currentTime = t;
+        setTimeout(addBookmark, 120);
+        return { ok:true, msg:`Pinning at ${fmt(t)}` };
+      }
+      addBookmark();
+      return { ok:true, msg:'Pinned current frame' };
+    }
+  },
+  { re: /^(?:delete|remove|clear) last bookmark$/i, label: () => 'Remove last bookmark',
+    run: () => {
+      if (!bookmarks.length) return { ok:false, err:'No bookmarks' };
+      removeBookmark(bookmarks[bookmarks.length-1].id);
+      return { ok:true };
+    }
+  },
+  {
+    re: /^(?:speed|playback speed|play at|playback)\s+(?:to\s+|at\s+)?(.+?)(?:x|×|times)?$/i,
+    label: (m) => `Speed ${m[1]}×`,
+    run: (m) => {
+      const n = wordToNum(m[1]) ?? parseFloat(m[1]);
+      if (!n || !isFinite(n)) return { ok:false, err:`Bad speed "${m[1]}"` };
+      const clamped = Math.max(0.1, Math.min(80, n));
+      vid.playbackRate = clamped;
+      document.getElementById('speedInput').value = clamped;
+      return { ok:true };
+    }
+  },
+  { re: /^zoom in$/i,    label: () => 'Zoom in',   run: () => { zoomStep(1);  return { ok:true }; } },
+  { re: /^zoom out$/i,   label: () => 'Zoom out',  run: () => { zoomStep(-1); return { ok:true }; } },
+  { re: /^(?:fit|fit to screen|fit to window|fit video)$/i, label: () => 'Fit',     run: () => { zoomToFit(); return { ok:true }; } },
+  { re: /^(?:100%?|actual size|one to one|1:1)$/i,          label: () => '100%',    run: () => { zoomToActual(); return { ok:true }; } },
+  { re: /^(?:show |toggle |turn on |enable )?clipping(?:\s+overlay)?$/i, label: () => 'Clipping on',   run: () => { setFxMode('clip'); return { ok:true }; } },
+  { re: /^(?:show |toggle |turn on |enable )?false color$/i,             label: () => 'False color on', run: () => { setFxMode('false'); return { ok:true }; } },
+  { re: /^(?:show |toggle |turn on |enable )?(?:frame )?diff$/i,         label: () => 'Frame diff on',  run: () => { setFxMode('diff'); return { ok:true }; } },
+  { re: /^(?:turn off |hide |clear |off|no )(?:overlay|clipping|false color|diff)$/i, label: () => 'Overlay off', run: () => { setFxMode('off'); return { ok:true }; } },
+  { re: /^(?:show |toggle )?(?:rule of )?thirds(?:\s+grid)?$/i, label: () => 'Thirds',    run: () => { setGridMode('thirds'); return { ok:true }; } },
+  { re: /^(?:show |toggle )?(?:crosshair|center grid|center cross)$/i, label: () => 'Crosshair', run: () => { setGridMode('cross'); return { ok:true }; } },
+  { re: /^(?:show |toggle )?safe(?:\s+area)?(?:s)?$/i, label: () => 'Safe area', run: () => { setGridMode('safe'); return { ok:true }; } },
+  { re: /^(?:hide|clear|no) grid$/i, label: () => 'Grid off', run: () => { setGridMode('off'); return { ok:true }; } },
+  { re: /^(?:detect |find |run |show )?edges$/i, label: () => 'Sobel edges',
+    run: () => { detectEdges(); return { ok:true }; }
+  },
+  { re: /^(?:run |detect |find )?ela$/i, label: () => 'ELA',
+    run: () => { runEla(); return { ok:true }; }
+  },
+  { re: /^(?:detect |find |run |show )?(?:blur|blur detection)$/i, label: () => 'Detect blur',
+    run: () => { document.getElementById('detectBlurBtn').click(); return { ok:true }; }
+  },
+  { re: /^(?:analyze|run|detect|find)\s+motion(?:\s+analysis)?$/i, label: () => 'Motion analyzer',
+    run: () => { analyzeMotion(); return { ok:true, msg:'Running motion analysis…' }; }
+  },
+  { re: /^(?:detect |find |check )?(?:pulse|heart rate|heartbeat|bpm)$/i, label: () => 'Pulse',
+    run: () => {
+      if (!lassoPath || !lassoPath.closed) return { ok:false, err:'Lasso a skin region first for pulse detection' };
+      analyzeMotion();
+      return { ok:true, msg:'Running pulse detection…' };
+    }
+  },
+  { re: /^(?:open|show|go to)\s+(adjust|presets|draw|inspect|crop)(?:\s+tab)?$/i,
+    label: (m) => `${m[1][0].toUpperCase()+m[1].slice(1)} tab`,
+    run: (m) => {
+      const t = document.querySelector(`.tab[data-t="${m[1].toLowerCase()}"]`);
+      if (!t) return { ok:false, err:`No "${m[1]}" tab` };
+      t.click();
+      return { ok:true };
+    }
+  },
+  { re: /^(?:reset|reset all|clear adjustments)$/i, label: () => 'Reset adjustments',
+    run: () => { const r = document.getElementById('resetBtn'); if (r) r.click(); return { ok:true }; }
+  },
+  { re: /^(?:clear drawings|clear annotations|erase all)$/i, label: () => 'Clear drawings',
+    run: () => { document.getElementById('clearDrawBtn').click(); return { ok:true }; }
+  },
+  { re: /^(?:deselect|clear selection|clear lasso)$/i, label: () => 'Deselect',
+    run: () => { cancelLasso(); return { ok:true }; }
+  },
+  { re: /^(?:help|show help|how do i|what can you do)$/i, label: () => 'Open help',
+    run: () => { openHelp(); return { ok:true }; }
+  },
+];
+
+function runCommand(rawText) {
+  const text = normalizeCmd(rawText);
+  if (!text) return { ok:false, err:'Empty command' };
+  for (const rule of COMMAND_RULES) {
+    const m = text.match(rule.re);
+    if (m) {
+      try {
+        const result = rule.run(m) || { ok:true };
+        result.label = result.label || (rule.label ? rule.label(m) : null);
+        return result;
+      } catch (e) {
+        return { ok:false, err:'Error: ' + e.message };
+      }
+    }
+  }
+  return { ok:false, err:`Didn't understand "${rawText}"` };
+}
+
+// ── Command bar UI + Web Speech API ───────────────────────
+const cmdBar      = document.getElementById('cmdBar');
+const cmdInput    = document.getElementById('cmdInput');
+const cmdGo       = document.getElementById('cmdGo');
+const cmdMic      = document.getElementById('cmdMic');
+const cmdFeedback = document.getElementById('cmdFeedback');
+const cmdToggleHint = document.getElementById('cmdToggleHint');
+
+function showCmdBar() {
+  cmdBar.classList.remove('hidden');
+  cmdBar.classList.add('show');
+  cmdToggleHint.style.display = 'none';
+  setTimeout(() => cmdInput.focus(), 50);
+}
+function hideCmdBar() {
+  cmdBar.classList.remove('show');
+  cmdBar.classList.add('hidden');
+  cmdInput.blur();
+  cmdToggleHint.style.display = '';
+  stopListening();
+}
+function cmdFeedbackShow(html, isError) {
+  cmdFeedback.innerHTML = html;
+  cmdFeedback.classList.toggle('error', !!isError);
+  cmdFeedback.classList.add('show');
+  clearTimeout(cmdFeedbackShow._t);
+  cmdFeedbackShow._t = setTimeout(() => cmdFeedback.classList.remove('show'), 3000);
+}
+
+function runFromInput() {
+  const text = cmdInput.value.trim();
+  if (!text) return;
+  const r = runCommand(text);
+  if (r.ok) {
+    const label = r.label || r.msg || 'Done';
+    cmdFeedbackShow(`<b>${label}</b>${r.msg && r.label && r.msg !== r.label ? ' — ' + r.msg : ''}`);
+    cmdInput.value = '';
+  } else {
+    cmdFeedbackShow(`<b>?</b> ${r.err}`, true);
+  }
+}
+
+cmdGo.addEventListener('click', runFromInput);
+cmdInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); runFromInput(); }
+  if (e.key === 'Escape') { e.preventDefault(); hideCmdBar(); }
+});
+
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+  if (e.key === '/') {
+    e.preventDefault();
+    if (cmdBar.classList.contains('show')) hideCmdBar(); else showCmdBar();
+  }
+});
+
+let recog = null;
+let listening = false;
+function startListening() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { cmdFeedbackShow('<b>?</b> Voice not supported in this browser. Try Chrome.', true); return; }
+  if (listening) { stopListening(); return; }
+  recog = new SR();
+  recog.lang = navigator.language || 'en-US';
+  recog.interimResults = true;
+  recog.continuous = false;
+  recog.onstart = () => {
+    listening = true;
+    cmdMic.classList.add('listening');
+    cmdFeedbackShow('<b>Listening…</b> speak now');
+  };
+  recog.onresult = (e) => {
+    const last = e.results[e.results.length - 1];
+    const text = last[0].transcript.trim();
+    cmdInput.value = text;
+    if (last.isFinal) {
+      stopListening();
+      setTimeout(runFromInput, 100);
+    }
+  };
+  recog.onerror = (e) => {
+    cmdFeedbackShow(`<b>?</b> Mic error: ${e.error}`, true);
+    stopListening();
+  };
+  recog.onend = () => { stopListening(); };
+  try { recog.start(); } catch(e) { cmdFeedbackShow('<b>?</b> ' + e.message, true); }
+}
+function stopListening() {
+  listening = false;
+  cmdMic.classList.remove('listening');
+  if (recog) { try { recog.stop(); } catch(e) {} recog = null; }
+}
+cmdMic.addEventListener('click', startListening);
+
 // ── Help modal ───────────────────────────────────────────
 const HELP = [
   // ── Getting Started ──
@@ -4377,6 +4934,33 @@ const HELP = [
   { cat:'Export', title:'Export WebM', keys:[], body:
     'Top-right <b>Export</b> button. Bakes the current Adjust sliders, crop, and annotation strokes into a WebM file at full video resolution. Uses VP9 if supported.',
     tips:['Export runs at real-time speed (the video plays once). Pause and review first.','Bookmarks are not in the WebM — use Report (PDF) for those.'] },
+
+  // ── Natural-language commands ──
+  { cat:'Commands', title:'Command bar — type or speak', keys:['/'], body:
+    'Press <span class="kbd">/</span> anywhere to open the floating command bar. Type a command, or click the <b>mic</b> button to speak (uses Web Speech API — works in Chrome/Edge/Android Chrome).',
+    tips:[
+      'Press <span class="kbd">Enter</span> to run, <span class="kbd">Esc</span> to close.',
+      'The mic button lights up red while listening — speak naturally, it sends the command as soon as you finish.',
+      'All commands run on-device. The mic uses the OS speech service (Google on Android, Apple on iOS) — your audio doesn\'t go to us.',
+    ],
+    try:[{ label:'Open command bar', target:'#cmdBar', click:false }] },
+  { cat:'Commands', title:'What you can say', keys:[], body:
+    'A non-exhaustive list — the parser is forgiving with phrasing.',
+    list:[
+      '<b>Navigate:</b> "go to 4:20", "jump to the 30 second mark", "rewind 10 seconds", "skip 30s"',
+      '<b>Playback:</b> "play", "pause", "speed 2x", "play at 1.5", "next frame", "previous frame"',
+      '<b>Bookmarks:</b> "bookmark this", "pin this frame", "mark at 4:20", "delete last bookmark"',
+      '<b>Clip / save:</b> "save from 4:20 to 6:18", "record from 2 minutes to 3 minutes", "clip 1:00 to 2:00"',
+      '<b>Overlays:</b> "show clipping", "false color", "frame diff", "thirds", "crosshair", "safe areas", "grid off"',
+      '<b>Analysis:</b> "edges", "ELA", "detect blur", "analyze motion", "find pulse"',
+      '<b>View:</b> "zoom in", "zoom out", "fit", "100%"',
+      '<b>Tabs:</b> "open inspect tab", "open draw tab"',
+      '<b>Time phrasings the parser accepts:</b> "4:20", "4 minutes 20 seconds", "two minutes thirty", "4 min 20", "1h 30m", "frame 142", "30s", "halfway", "start", "end"',
+    ],
+    tips:[
+      'Voice commands work especially well on mobile — open the Mobile build and tap the mic for hands-free review.',
+      'Commands like "at the 4 minute 20 second mark, record the section until 6 minutes 18 seconds, and save that section" work — the parser strips filler.',
+    ] },
 
   // ── Shortcuts ──
   { cat:'Shortcuts', title:'Key Tutor (interactive)', keys:[], body:
