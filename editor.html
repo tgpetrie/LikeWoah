@@ -1,4 +1,21 @@
 <!DOCTYPE html>
+<!--
+  VideoEdit · Forensic Inspection Tool
+  Copyright (C) 2026 Tom Petrie <tgpetrie@gmail.com>
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU Affero General Public License as
+  published by the Free Software Foundation, either version 3 of the
+  License, or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU Affero General Public License for more details.
+
+  Source code: https://github.com/tgpetrie/LikeWoah
+  Full license: https://www.gnu.org/licenses/agpl-3.0
+-->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -712,61 +729,22 @@ input[type=range]::-webkit-slider-thumb{
 
 #xcanvas{display:none}
 
-/* ── Touch / mobile-friendly layout ─────────────────────── */
-/* Prevent browser's default 300ms tap delay + double-tap zoom on UI */
-button, .tab, .tool-btn, .ratio-btn, .mode-btn, .cswatch,
-.bm-row, .help-tab, .try-btn, .sel-act, input[type="range"], input[type="checkbox"] {
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-}
-/* The video preview area: own gestures, no browser zoom */
-.preview, .vwrap, #drawCanvas, #lassoCanvas, #fxCanvas, .tline {
-  touch-action: none;
-}
+/* Desktop build: minimal touch-action hints so trackpads behave,
+   but no phone responsive layout (use mobile.html for that). */
+.preview, .vwrap, #drawCanvas, #lassoCanvas, #fxCanvas { touch-action: none; }
+button, .tab { -webkit-tap-highlight-color: transparent; }
 
-/* On narrow screens (phones, portrait tablets) collapse to stacked layout */
-@media (max-width: 760px) {
-  body { font-size: 13px; }
-  .main { flex-direction: column; }
-  .sidebar {
-    width: 100%; max-height: 45vh; min-height: 200px;
-    border-right: none; border-bottom: 1px solid var(--border);
-  }
-  .center { flex: 1; min-height: 0; }
-  .preview { min-height: 220px; }
-  /* Bigger touch targets */
-  .tab { padding: 14px 0; font-size: 12px; }
-  .tool-btn { padding: 11px 4px; min-height: 44px; font-size: 11px; }
-  .cswatch { width: 32px; height: 32px; }
-  .step-btn { width: 38px; height: 38px; }
-  .play-btn { width: 44px; height: 44px; }
-  .ratio-btn { padding: 12px 4px; min-height: 40px; }
-  .mode-btn { padding: 12px 6px; min-height: 40px; }
-  .btn { padding: 10px 12px; font-size: 13px; min-height: 38px; }
-  .btn-sm { padding: 7px 10px; min-height: 32px; }
-  .tline { height: 8px; }
-  .tline-thumb { width: 18px; height: 18px; }
-  /* HUD shouldn't overlap content on small screens */
-  .zoom-hud { bottom: 8px; left: 8px; padding: 4px 8px; }
-  .zhbtn { width: 32px; height: 32px; font-size: 16px; }
-  /* Modal close & search bigger on touch */
-  .help-search { padding: 10px 12px; font-size: 14px; }
-  .help-tab { padding: 12px 14px; font-size: 13px; }
-  .try-btn { padding: 10px 16px; font-size: 13px; }
+/* Banner at top-left if the page detects it's running on a touch device,
+   prompting the user to switch to the mobile build. */
+.touch-banner {
+  display: none;
+  position: fixed; top: 8px; left: 50%; transform: translateX(-50%);
+  z-index: 400; background: var(--accent); color: #0a2019;
+  padding: 8px 14px; border-radius: 6px; font-size: 12px; font-weight: 600;
+  box-shadow: 0 4px 12px rgba(0,0,0,.4); cursor: pointer;
 }
-
-/* On very narrow screens, give the help modal full width */
-@media (max-width: 480px) {
-  .help-modal { width: 100vw; max-height: 92vh; border-radius: 0; }
-  .help-head { padding: 12px 14px; }
-  .help-body { padding: 12px 14px; }
-}
-
-/* Allow safe-area insets on devices with notches */
-@supports (padding: max(0px)) {
-  header { padding-left: max(14px, env(safe-area-inset-left)); padding-right: max(14px, env(safe-area-inset-right)); }
-  .cbar  { padding-bottom: max(10px, env(safe-area-inset-bottom)); }
-}
+.touch-banner.show { display: block; }
+.touch-banner small { display: block; font-weight: 400; opacity: .8; margin-top: 2px; }
 </style>
 </head>
 <body>
@@ -1197,10 +1175,15 @@ button, .tab, .tool-btn, .ratio-btn, .mode-btn, .cswatch,
     <div class="help-body" id="helpBody"></div>
     <div class="help-foot">
       <span>Press <span class="kbd" style="background:#222;border:1px solid #3a3a3a;color:var(--accent);padding:1px 6px;border-radius:4px;font-family:monospace">?</span> any time to open this · <span class="kbd" style="background:#222;border:1px solid #3a3a3a;color:var(--accent);padding:1px 6px;border-radius:4px;font-family:monospace">Esc</span> to close</span>
-      <span>VideoEdit · Forensic Inspection</span>
+      <span>VideoEdit · AGPL-3.0 · <a href="https://github.com/tgpetrie/LikeWoah" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none">Source</a></span>
     </div>
   </div>
 </div>
+
+<a class="touch-banner" id="touchBanner" href="mobile.html">
+  Touch device detected — open the Mobile build →
+  <small>Tap here, or stay on desktop</small>
+</a>
 
 <div class="toast" id="toast"></div>
 <input type="file" id="fileIn" accept="video/*,.mp4,.mov,.m4v,.webm,.mkv,.avi,.ogg,.ogv,.ts,.mts,.m2ts" style="display:none">
@@ -4753,6 +4736,24 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {/* silent: opening via file:// won't register */});
   });
 }
+
+// ── Touch-device hint ─────────────────────────────────────
+// If the user opens the desktop build on a touch device, show a non-blocking
+// banner suggesting mobile.html. Dismiss-once via sessionStorage.
+(function() {
+  const isTouch = matchMedia('(pointer: coarse)').matches || ('ontouchstart' in window && innerWidth < 900);
+  const dismissed = sessionStorage.getItem('hideTouchHint') === '1';
+  if (!isTouch || dismissed) return;
+  const banner = document.getElementById('touchBanner');
+  if (!banner) return;
+  banner.classList.add('show');
+  // Dismiss on right-click / two-finger tap / explicit close key
+  banner.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    banner.classList.remove('show');
+    sessionStorage.setItem('hideTouchHint', '1');
+  });
+})();
 </script>
 </body>
 </html>
