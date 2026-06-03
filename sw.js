@@ -1,8 +1,11 @@
 // VideoEdit service worker — minimal app-shell cache so the app loads offline.
-const CACHE = 'videoedit-v1';
+const CACHE = 'videoedit-v2';
 const SHELL = [
   './',
+  'index.html',
   'editor.html',
+  'mobile.html',
+  'mobile.js',
   'manifest.webmanifest',
   'icon-192.png',
   'icon-512.png',
@@ -30,7 +33,7 @@ self.addEventListener('fetch', e => {
   // Don't cache CDN scripts (jsPDF) — let the browser cache them normally
   if (url.origin !== self.location.origin) return;
 
-  if (url.pathname.endsWith('editor.html') || url.pathname.endsWith('/')) {
+  if (url.pathname.endsWith('editor.html') || url.pathname.endsWith('mobile.html') || url.pathname.endsWith('mobile.js') || url.pathname.endsWith('/')) {
     e.respondWith(
       fetch(e.request).then(resp => {
         const copy = resp.clone();

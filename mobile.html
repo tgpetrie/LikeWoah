@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<!--
+  VideoEdit · Forensic Inspection Tool · Mobile build
+  Copyright (C) 2026 Tom Petrie
+  Licensed under AGPL-3.0 — https://www.gnu.org/licenses/agpl-3.0
+  Source: https://github.com/tgpetrie/LikeWoah
+
+  Touch-first variant. For the desktop workstation, open editor.html.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0d0d0d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<title>VideoEdit Mobile</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0a0a0a; --panel:#141414; --panel2:#1c1c1c;
+  --border:#2a2a2a; --accent:#3ecf8e; --accent-dark:#0a2019;
+  --text:#e2e2e2; --muted:#888; --danger:#e07050;
+  --safe-top:env(safe-area-inset-top, 0px);
+  --safe-bot:env(safe-area-inset-bottom, 0px);
+  --safe-left:env(safe-area-inset-left, 0px);
+  --safe-right:env(safe-area-inset-right, 0px);
+}
+html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--text);
+  font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size:14px;
+  user-select:none; -webkit-user-select:none; }
+button { font-family:inherit; cursor:pointer; }
+.app { height:100%; display:flex; flex-direction:column;
+  padding-top:var(--safe-top); padding-left:var(--safe-left); padding-right:var(--safe-right); }
+.top { display:flex; align-items:center; gap:6px; height:52px; padding:0 12px;
+  background:rgba(20,20,20,.85); border-bottom:1px solid var(--border);
+  flex-shrink:0; backdrop-filter:blur(10px); z-index:10; }
+.top .logo { font-size:15px; font-weight:600; }
+.top .logo .acc { color:var(--accent); }
+.top .spacer { flex:1; }
+.top-btn { background:none; border:none; color:var(--text);
+  width:40px; height:40px; border-radius:10px; position:relative;
+  display:flex; align-items:center; justify-content:center; font-size:18px; }
+.top-btn:active { background:var(--panel2); }
+.top-btn svg { width:22px; height:22px; fill:currentColor; }
+.top-btn.has-badge::after { content:attr(data-badge); position:absolute; top:6px; right:6px;
+  background:var(--accent); color:var(--accent-dark);
+  font-size:10px; font-weight:700; padding:0 4px; border-radius:8px; line-height:14px; }
+.center { flex:1; min-height:0; position:relative; background:#000; overflow:hidden;
+  display:flex; align-items:center; justify-content:center; }
+.drop-zone { position:absolute; inset:0; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; text-align:center; padding:20px; color:var(--muted); }
+.drop-zone.hidden { display:none; }
+.drop-zone .icon { width:64px; height:64px; margin-bottom:14px; stroke:var(--accent); stroke-width:1.5; fill:none; }
+.drop-zone h2 { font-size:18px; font-weight:600; color:var(--text); margin-bottom:6px; }
+.drop-zone p { font-size:13px; line-height:1.5; max-width:300px; }
+.open-btn-big { margin-top:18px; background:var(--accent); color:var(--accent-dark);
+  border:none; padding:14px 28px; border-radius:24px; font-size:15px; font-weight:600; }
+.vwrap { position:absolute; transform-origin:0 0; display:none; }
+.vwrap.on { display:block; }
+#vid { display:block; max-width:100%; max-height:100%; background:#000; }
+#fxCanvas, #lassoCanvas { position:absolute; inset:0; pointer-events:none; width:100%; height:100%; }
+#fxCanvas { z-index:1; }
+#lassoCanvas { z-index:2; }
+.touch-overlay { position:absolute; inset:0; z-index:5; touch-action:none; }
+.center-indicator { position:absolute; left:50%; top:50%; transform:translate(-50%, -50%);
+  width:80px; height:80px; border-radius:50%; background:rgba(0,0,0,.55);
+  display:flex; align-items:center; justify-content:center;
+  z-index:6; pointer-events:none; opacity:0; transition:opacity .25s, transform .25s; }
+.center-indicator.show { opacity:1; transform:translate(-50%,-50%) scale(1.1); }
+.center-indicator svg { width:38px; height:38px; fill:#fff; }
+.tline-wrap { position:relative; padding:14px 16px 6px;
+  background:linear-gradient(to top, rgba(10,10,10,.95) 60%, transparent); }
+.tline-times { display:flex; justify-content:space-between; font-size:10px;
+  color:var(--muted); font-variant-numeric:tabular-nums; margin-bottom:8px; font-family:monospace; }
+.tline { position:relative; height:8px; background:var(--panel2);
+  border-radius:4px; cursor:pointer; touch-action:none; }
+.tline-prog { height:100%; background:var(--accent); border-radius:4px; width:0%; }
+.tline-marks { position:absolute; inset:0; pointer-events:none; }
+.pin-mark { position:absolute; top:-2px; width:3px; height:12px;
+  background:var(--accent); border-radius:2px; transform:translateX(-50%); }
+.tline-thumb { position:absolute; top:50%; left:0%; transform:translate(-50%, -50%);
+  width:22px; height:22px; background:#fff; border-radius:50%;
+  box-shadow:0 2px 6px rgba(0,0,0,.5); pointer-events:none; }
+.actions { display:flex; align-items:center; justify-content:space-around;
+  padding:10px 12px calc(10px + var(--safe-bot));
+  background:rgba(10,10,10,.95); border-top:1px solid var(--border);
+  backdrop-filter:blur(10px); flex-shrink:0; gap:8px; z-index:10; }
+.act-btn { flex:0 0 auto; background:var(--panel2); border:1px solid transparent;
+  color:var(--text); width:56px; height:56px; border-radius:18px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:2px; font-size:10px; transition:transform .1s; }
+.act-btn:active { transform:scale(.92); background:#222; }
+.act-btn svg { width:22px; height:22px; fill:currentColor; }
+.act-btn.primary { background:var(--accent); color:var(--accent-dark);
+  width:68px; height:68px; border-radius:34px; gap:0; }
+.act-btn.primary svg { width:30px; height:30px; }
+.act-btn.primary .icon-pause { display:none; }
+.act-btn.primary.playing .icon-play { display:none; }
+.act-btn.primary.playing .icon-pause { display:block; }
+.act-btn.mic { background:#221818; color:var(--danger); }
+.act-btn.mic.listening { animation:pulse 1.2s ease-in-out infinite; background:#3a1818; }
+@keyframes pulse {
+  0%,100%{ box-shadow:0 0 0 0 rgba(224,112,80,.45); }
+  50%{ box-shadow:0 0 0 14px rgba(224,112,80,0); }
+}
+.act-btn:disabled { opacity:.35; pointer-events:none; }
+.act-btn .lbl { font-weight:500; }
+.zoom-fab { position:absolute; bottom:14px; right:14px;
+  background:rgba(20,20,20,.85); border:1px solid var(--border);
+  color:var(--text); padding:6px 10px; border-radius:14px;
+  font-size:11px; font-variant-numeric:tabular-nums;
+  z-index:7; pointer-events:none; opacity:0; transition:opacity .2s; }
+.zoom-fab.show { opacity:1; }
+.sheet-bg { position:fixed; inset:0; background:rgba(0,0,0,.55);
+  z-index:50; opacity:0; pointer-events:none; transition:opacity .2s; }
+.sheet-bg.show { opacity:1; pointer-events:auto; }
+.sheet { position:fixed; left:0; right:0; bottom:0;
+  background:var(--panel); border-radius:20px 20px 0 0;
+  padding:12px 16px calc(16px + var(--safe-bot));
+  z-index:51; max-height:78vh; overflow-y:auto;
+  transform:translateY(100%); transition:transform .25s ease;
+  border-top:1px solid var(--border); }
+.sheet.show { transform:translateY(0); }
+.sheet-handle { width:42px; height:5px; background:#444; border-radius:3px; margin:0 auto 14px; }
+.sheet h3 { font-size:17px; font-weight:600; margin-bottom:14px;
+  display:flex; align-items:center; gap:8px; }
+.sheet h3 .close { margin-left:auto; background:none; border:none;
+  color:var(--muted); font-size:24px; padding:4px 10px; }
+.menu-list { display:flex; flex-direction:column; gap:2px; }
+.menu-item { display:flex; align-items:center; gap:14px;
+  padding:14px 8px; border-radius:10px; background:none; border:none;
+  color:var(--text); font-size:14px; text-align:left; width:100%; }
+.menu-item:active { background:var(--panel2); }
+.menu-item .icon { width:36px; height:36px; flex-shrink:0; border-radius:10px;
+  background:var(--panel2); display:flex; align-items:center; justify-content:center;
+  color:var(--accent); }
+.menu-item .icon svg { width:18px; height:18px; fill:currentColor; }
+.menu-item .label .ttl { font-weight:500; }
+.menu-item .label .sub { font-size:11px; color:var(--muted); margin-top:2px; }
+.menu-item:disabled { opacity:.4; pointer-events:none; }
+.bm-list { display:flex; flex-direction:column; gap:6px; }
+.bm-row { display:flex; align-items:center; gap:10px;
+  background:var(--panel2); border-radius:12px; padding:10px 12px; }
+.bm-row .tc { font-family:monospace; font-size:11px; color:var(--accent);
+  flex-shrink:0; min-width:54px; }
+.bm-row .lbl-input { flex:1; background:none; border:none; color:var(--text);
+  font-size:13px; font-family:inherit; outline:none; min-width:0; }
+.bm-row .lbl-input::placeholder { color:var(--muted); font-style:italic; }
+.bm-row .del { background:none; border:none; color:var(--muted);
+  font-size:20px; padding:2px 8px; flex-shrink:0; }
+.bm-row .del:active { color:var(--danger); }
+.bm-empty { text-align:center; padding:32px 0; color:var(--muted); font-size:13px; }
+.toast { position:fixed; bottom:100px; left:50%; transform:translateX(-50%);
+  background:#1a2a22; border:1px solid var(--accent); color:var(--accent);
+  padding:10px 18px; border-radius:24px; font-size:13px;
+  opacity:0; transition:opacity .25s; pointer-events:none; z-index:200;
+  white-space:nowrap; max-width:90vw; overflow:hidden; text-overflow:ellipsis; }
+.toast.show { opacity:1; }
+.toast.danger { border-color:var(--danger); color:var(--danger); background:#221818; }
+.cmd-sheet { position:fixed; left:8px; right:8px; bottom:calc(98px + var(--safe-bot));
+  z-index:60; display:flex; align-items:center; gap:6px;
+  background:rgba(10,10,10,.96); border:1px solid var(--accent);
+  border-radius:24px; padding:7px 12px;
+  box-shadow:0 12px 32px rgba(0,0,0,.7);
+  transform:translateY(20px); opacity:0; pointer-events:none;
+  transition:opacity .15s, transform .15s; }
+.cmd-sheet.show { opacity:1; transform:translateY(0); pointer-events:auto; }
+.cmd-input { flex:1; background:none; border:none; color:var(--text);
+  font-size:14px; outline:none; padding:8px 4px; }
+.cmd-input::placeholder { color:var(--muted); }
+.cmd-feedback { position:absolute; left:0; right:0; bottom:calc(100% + 8px);
+  background:#0e1f17; border:1px solid var(--accent);
+  border-radius:14px; padding:10px 14px;
+  font-size:12px; color:#bde8c8;
+  opacity:0; pointer-events:none; transition:opacity .2s; }
+.cmd-feedback.show { opacity:1; }
+.cmd-feedback.error { background:#231414; border-color:var(--danger); color:#f1c7b6; }
+.desk-link { position:fixed; top:calc(14px + var(--safe-top)); right:8px;
+  font-size:11px; color:var(--muted);
+  background:rgba(20,20,20,.9); border:1px solid var(--border);
+  padding:4px 9px; border-radius:10px; text-decoration:none; z-index:8; }
+.desk-link:active { color:var(--text); }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <span class="logo">Video<span class="acc">Edit</span></span>
+    <span class="spacer"></span>
+    <button class="top-btn" id="openBtn" title="Open file">
+      <svg viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z"/></svg>
+    </button>
+    <button class="top-btn" id="menuBtn" title="Menu">
+      <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+    </button>
+  </div>
+  <div class="center" id="preview">
+    <div class="drop-zone" id="dropZone">
+      <svg class="icon" viewBox="0 0 64 64">
+        <rect x="8" y="14" width="48" height="36" rx="4"/>
+        <polygon points="26,24 26,40 40,32" fill="currentColor"/>
+      </svg>
+      <h2>Open a Video</h2>
+      <p>Tap the button below or the folder icon above. Pinch to zoom, drag to pan, tap to play/pause once loaded.</p>
+      <button class="open-btn-big" id="openBtnBig">Choose video</button>
+    </div>
+    <div class="vwrap" id="vwrap">
+      <video id="vid" playsinline preload="metadata"></video>
+      <canvas id="fxCanvas"></canvas>
+      <canvas id="lassoCanvas"></canvas>
+    </div>
+    <div class="touch-overlay" id="touchOl"></div>
+    <div class="center-indicator" id="centerInd">
+      <svg viewBox="0 0 24 24" id="centerIcon"><path d="M8 5v14l11-7z"/></svg>
+    </div>
+    <div class="zoom-fab" id="zoomFab">100%</div>
+    <a class="desk-link" href="editor.html" id="deskLink">Desktop ↗</a>
+  </div>
+  <div class="tline-wrap" id="tlineWrap" style="display:none">
+    <div class="tline-times">
+      <span id="tcur">0:00</span>
+      <span id="tdur">0:00</span>
+    </div>
+    <div class="tline" id="tline">
+      <div class="tline-prog" id="tprog"></div>
+      <div class="tline-marks" id="tlineMarks"></div>
+      <div class="tline-thumb" id="tthumb"></div>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="act-btn" id="stepBack" disabled aria-label="Previous frame">
+      <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+      <span class="lbl">Frame</span>
+    </button>
+    <button class="act-btn primary" id="playBtn" disabled aria-label="Play/pause">
+      <svg class="icon-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      <svg class="icon-pause" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+    </button>
+    <button class="act-btn" id="stepFwd" disabled aria-label="Next frame">
+      <svg viewBox="0 0 24 24"><path d="M6 18 14.5 12 6 6zM16 6h2v12h-2z"/></svg>
+      <span class="lbl">Frame</span>
+    </button>
+    <button class="act-btn" id="bookmarkBtn" disabled aria-label="Bookmark this frame">
+      <svg viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
+      <span class="lbl">Pin</span>
+    </button>
+    <button class="act-btn mic" id="micBtn" aria-label="Voice command">
+      <svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>
+      <span class="lbl">Voice</span>
+    </button>
+  </div>
+</div>
+<div class="sheet-bg" id="sheetBg"></div>
+<div class="sheet" id="sheet">
+  <div class="sheet-handle"></div>
+  <div id="sheetContent"></div>
+</div>
+<div class="cmd-sheet" id="cmdSheet">
+  <div class="cmd-feedback" id="cmdFeedback"></div>
+  <input type="text" class="cmd-input" id="cmdInput" placeholder='Say or type: "save from 4:20 to 6:18"' autocomplete="off">
+  <button class="top-btn" id="cmdClose" style="background:none">
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+  </button>
+</div>
+<div class="toast" id="toast"></div>
+<input type="file" id="fileIn" accept="video/*,.mp4,.mov,.m4v,.webm,.mkv,.avi,.ogg,.ogv,.ts,.mts,.m2ts,.3gp,.flv,.wmv" style="display:none">
+<script src="mobile.js"></script>
+</body>
+</html>

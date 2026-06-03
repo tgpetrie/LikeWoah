@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<!--
+  VideoEdit landing page.
+  Copyright (C) 2026 Tom Petrie. AGPL-3.0.
+  Source: https://github.com/tgpetrie/LikeWoah
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0d0d0d">
+<link rel="manifest" href="manifest.webmanifest">
+<title>VideoEdit · Forensic Inspection</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0a; --panel:#141414; --border:#2a2a2a;
+  --accent:#3ecf8e; --accent-dark:#0a2019;
+  --text:#e2e2e2; --muted:#888;
+}
+html,body{min-height:100%;background:var(--bg);color:var(--text);
+  font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size:15px;line-height:1.55}
+body{display:flex;flex-direction:column;align-items:center;
+  padding:max(40px, env(safe-area-inset-top)) 20px 60px;}
+.logo{font-size:32px;font-weight:700;margin-bottom:8px;letter-spacing:-.5px}
+.logo .acc{color:var(--accent)}
+.tag{color:var(--muted);font-size:14px;margin-bottom:32px;text-align:center;max-width:580px}
+.tag b{color:var(--text);font-weight:500}
+
+.choice-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:18px;
+  max-width:760px;width:100%;margin-bottom:40px;
+}
+@media (max-width: 600px) { .choice-grid{grid-template-columns:1fr} }
+.choice{
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:18px;padding:22px;text-decoration:none;color:inherit;
+  display:flex;flex-direction:column;gap:10px;
+  transition:border-color .15s, transform .15s;
+  position:relative;
+}
+.choice:hover, .choice:active{border-color:var(--accent);transform:translateY(-1px)}
+.choice .ico{
+  width:48px;height:48px;border-radius:14px;background:#0e1f17;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--accent);font-size:24px;margin-bottom:4px;
+}
+.choice h2{font-size:20px;font-weight:600}
+.choice .small{color:var(--muted);font-size:13px;line-height:1.5}
+.choice ul{margin:8px 0 0 18px;font-size:12.5px;color:var(--muted);line-height:1.7}
+.choice ul li::marker{color:var(--accent)}
+.choice .badge{
+  position:absolute;top:14px;right:14px;
+  background:var(--accent);color:var(--accent-dark);
+  font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;
+}
+
+.section{max-width:760px;width:100%;margin-bottom:32px}
+.section h3{
+  font-size:13px;color:var(--muted);font-weight:600;
+  text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;
+}
+.features{
+  display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;
+  font-size:12.5px;color:var(--muted);
+}
+@media (max-width: 600px) { .features{grid-template-columns:1fr 1fr} }
+.features div{padding:8px 10px;background:var(--panel);border-radius:8px;border:1px solid var(--border)}
+.features div::before{content:'✓ ';color:var(--accent);font-weight:600}
+
+footer{
+  max-width:760px;width:100%;
+  font-size:11.5px;color:#555;text-align:center;
+  border-top:1px solid var(--border);padding-top:18px;line-height:1.7;
+}
+footer a{color:var(--muted);text-decoration:none}
+footer a:hover{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<div class="logo">Video<span class="acc">Edit</span></div>
+<div class="tag">
+  <b>Forensic video inspection</b> in a single browser tab — bookmark anomalies, detect motion irregularities and hidden pulses, export PDF reports.
+  Runs entirely on-device. No upload, no telemetry, no account.
+</div>
+
+<div class="choice-grid">
+  <a class="choice" id="desktopChoice" href="editor.html">
+    <div class="ico">🖥</div>
+    <h2>Desktop / Workstation</h2>
+    <div class="small">Full forensic toolkit with keyboard shortcuts, sidebar tabs, dense controls, and every analysis module.</div>
+    <ul>
+      <li>Adjust sliders, presets, draw tools</li>
+      <li>Lasso, magic wand, selection library</li>
+      <li>Motion analyzer, ELA, Sobel, blur</li>
+      <li>Object tracking, PDF report export</li>
+      <li>Voice & text commands</li>
+    </ul>
+  </a>
+  <a class="choice" id="mobileChoice" href="mobile.html">
+    <div class="badge">Field</div>
+    <div class="ico">📱</div>
+    <h2>Mobile / Touch</h2>
+    <div class="small">Streamlined, thumb-zone reviewer for phones and tablets. Long-press to bookmark, voice for everything else.</div>
+    <ul>
+      <li>Pinch-zoom, drag-pan, tap to play</li>
+      <li>Long-press video → bookmark</li>
+      <li>Voice command for navigation & clipping</li>
+      <li>Save clip section · motion analysis</li>
+      <li>Install as PWA (Add to Home Screen)</li>
+    </ul>
+  </a>
+</div>
+
+<div class="section">
+  <h3>What it can detect</h3>
+  <div class="features">
+    <div>Blown highlights / crushed blacks</div>
+    <div>False-color exposure regions</div>
+    <div>Frame diff & motion spikes</div>
+    <div>Sobel edges, ELA tamper</div>
+    <div>Laplacian blur / redaction</div>
+    <div>Motion irregularity & jerk</div>
+    <div>Periodicity (rhythmic motion)</div>
+    <div>Pulse / heart rate (rPPG)</div>
+    <div>Frame-accurate SMPTE timecode</div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Try saying or typing (mobile + desktop)</h3>
+  <div class="features" style="grid-template-columns:1fr 1fr">
+    <div style="font-family:monospace;font-size:11.5px;color:#bde8c8">"go to four minutes twenty"</div>
+    <div style="font-family:monospace;font-size:11.5px;color:#bde8c8">"bookmark this"</div>
+    <div style="font-family:monospace;font-size:11.5px;color:#bde8c8">"save from 4:20 to 6:18"</div>
+    <div style="font-family:monospace;font-size:11.5px;color:#bde8c8">"analyze motion"</div>
+    <div style="font-family:monospace;font-size:11.5px;color:#bde8c8">"play at 2x"</div>
+    <div style="font-family:monospace;font-size:11.5px;color:#bde8c8">"rewind 10 seconds"</div>
+  </div>
+</div>
+
+<footer>
+  © 2026 Tom Petrie · Licensed under <a href="LICENSE">AGPL-3.0</a> ·
+  <a href="https://github.com/tgpetrie/LikeWoah" target="_blank" rel="noopener">Source on GitHub</a>
+</footer>
+
+<script>
+// Auto-route touch devices to mobile, but let them override by clicking Desktop
+(function() {
+  const isTouch = matchMedia('(pointer: coarse)').matches || (innerWidth < 760);
+  // Highlight the recommended option for this device
+  const target = isTouch ? document.getElementById('mobileChoice') : document.getElementById('desktopChoice');
+  target.style.borderColor = 'var(--accent)';
+  target.style.boxShadow = '0 0 0 1px var(--accent)';
+
+  // Add ?auto=mobile or ?auto=desktop to skip the picker
+  const params = new URLSearchParams(location.search);
+  if (params.get('auto') === 'mobile') location.href = 'mobile.html';
+  if (params.get('auto') === 'desktop') location.href = 'editor.html';
+})();
+
+// Register service worker so the landing page is offline-capable too
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
