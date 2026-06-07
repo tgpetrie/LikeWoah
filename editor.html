@@ -470,6 +470,28 @@ input[type=range]::-webkit-slider-thumb{
   transform:translateX(-50%);pointer-events:auto;cursor:pointer;
   box-shadow:0 0 0 1px rgba(0,0,0,.5);
 }
+
+/* ── Range selector (in/out trim) ── */
+.sel-range{
+  position:absolute;top:0;bottom:0;background:rgba(62,207,142,.15);
+  pointer-events:none;border-left:1px solid var(--accent);border-right:1px solid var(--accent);
+  z-index:0;
+}
+.sel-handle{
+  position:absolute;top:50%;width:14px;height:18px;
+  background:var(--accent);border-radius:2px;
+  transform:translate(-50%,-50%);cursor:col-resize;
+  pointer-events:auto;z-index:2;box-shadow:0 1px 3px rgba(0,0,0,.4);
+  transition:opacity .1s;
+}
+.sel-handle:hover{opacity:.85}
+.sel-handle.active{opacity:1;box-shadow:0 0 8px rgba(62,207,142,.6)}
+.sel-handle-label{
+  position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);
+  font-size:9px;color:var(--accent);white-space:nowrap;
+  pointer-events:none;font-family:monospace;
+}
+}
 .pin-mark::before{
   content:'';position:absolute;left:50%;top:-3px;
   width:7px;height:7px;background:var(--accent);
@@ -1112,6 +1134,14 @@ button, .tab { -webkit-tap-highlight-color: transparent; }
         <button class="btn btn-ghost" id="reportBtn" style="flex:1" disabled>Export Report (PDF)</button>
       </div>
       <div class="insp-note">PDF with a frame snapshot + your note for each bookmark.</div>
+
+      <!-- ── Range selector (in/out trim) ── -->
+      <div class="sec-head" style="margin-top:14px">Trim Selection</div>
+      <div class="insp-note">Press <b style="color:var(--text)">I</b> at the start, <b style="color:var(--text)">O</b> at the end. Or drag the timeline handles.</div>
+      <div class="insp-row" style="margin-top:7px">
+        <button class="btn btn-ghost" id="saveSelBtn" style="flex:1" disabled onclick="saveSelection()">Save Selection</button>
+      </div>
+      <div class="insp-note" id="selInfo" style="display:none">Selection: <span id="selTimes" style="color:var(--accent);font-family:monospace"></span></div>
     </div>
 
     <!-- ── Crop ── -->
@@ -1191,8 +1221,15 @@ button, .tab { -webkit-tap-highlight-color: transparent; }
 
     <div class="cbar">
       <div class="tline" id="tline">
+        <div class="sel-range" id="selRange" style="display:none"></div>
         <div class="tline-prog" id="tprog"></div>
         <div class="tline-marks" id="tlineMarks"></div>
+        <div class="sel-handle" id="selHandleIn" style="display:none; left:0%">
+          <div class="sel-handle-label" id="selLabelIn">in</div>
+        </div>
+        <div class="sel-handle" id="selHandleOut" style="display:none; left:0%">
+          <div class="sel-handle-label" id="selLabelOut">out</div>
+        </div>
         <div class="tline-thumb" id="tthumb"></div>
       </div>
       <div class="prow">
@@ -4351,6 +4388,136 @@ async function saveSection(startSec, endSec, filename) {
   }, ((endSec - startSec) * 1000) + 2000);
   return finished;
 }
+
+// ── Range selector (in/out trim points) ──
+let selRange = { in: null, out: null };
+let selDragging = null; // which handle ('in' or 'out') is being dragged
+
+function fmt(s) {
+  s = Math.max(0, s|0);
+  return `${(s/60)|0}:${String(s%60).padStart(2,'0')}`;
+}
+
+function updateSelRangeUI() {
+  const inHandle = document.getElementById('selHandleIn');
+  const outHandle = document.getElementById('selHandleOut');
+  const selRangeEl = document.getElementById('selRange');
+  const saveSelBtn = document.getElementById('saveSelBtn');
+  const selInfo = document.getElementById('selInfo');
+  const selTimes = document.getElementById('selTimes');
+
+  if (selRange.in === null || selRange.out === null) {
+    inHandle.style.display = 'none';
+    outHandle.style.display = 'none';
+    selRangeEl.style.display = 'none';
+    saveSelBtn.disabled = true;
+    selInfo.style.display = 'none';
+    return;
+  }
+
+  const dur = vid.duration || 1;
+  const inPct = (selRange.in / dur) * 100;
+  const outPct = (selRange.out / dur) * 100;
+
+  inHandle.style.left = inPct + '%';
+  outHandle.style.left = outPct + '%';
+  document.getElementById('selLabelIn').textContent = fmt(selRange.in);
+  document.getElementById('selLabelOut').textContent = fmt(selRange.out);
+
+  selRangeEl.style.left = inPct + '%';
+  selRangeEl.style.right = (100 - outPct) + '%';
+  selRangeEl.style.display = 'block';
+  inHandle.style.display = 'block';
+  outHandle.style.display = 'block';
+
+  // Update button and info
+  const duration = selRange.out - selRange.in;
+  selTimes.textContent = `${fmt(selRange.in)} → ${fmt(selRange.out)} (${fmt(duration)})`;
+  selInfo.style.display = 'block';
+  saveSelBtn.disabled = selRange.in >= selRange.out;
+}
+
+function setSelPoint(which, time) {
+  time = Math.max(0, Math.min(vid.duration || 0, time));
+  if (which === 'in') {
+    selRange.in = Math.min(time, (selRange.out !== null) ? selRange.out : (vid.duration || 0));
+  } else {
+    selRange.out = Math.max(time, (selRange.in !== null) ? selRange.in : 0);
+  }
+  updateSelRangeUI();
+}
+
+// Drag handlers for the in/out buttons
+function startSelDrag(which, e) {
+  e.preventDefault();
+  selDragging = which;
+  document.getElementById(`selHandle${which === 'in' ? 'In' : 'Out'}`).classList.add('active');
+  document.addEventListener('mousemove', onSelDragMove);
+  document.addEventListener('mouseup', onSelDragEnd);
+}
+
+function onSelDragMove(e) {
+  if (!selDragging) return;
+  const tline = document.getElementById('tline');
+  const rect = tline.getBoundingClientRect();
+  const pct = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+  const time = (pct / 100) * (vid.duration || 0);
+  setSelPoint(selDragging, time);
+}
+
+function onSelDragEnd() {
+  if (selDragging) {
+    document.getElementById(`selHandle${selDragging === 'in' ? 'In' : 'Out'}`).classList.remove('active');
+  }
+  selDragging = null;
+  document.removeEventListener('mousemove', onSelDragMove);
+  document.removeEventListener('mouseup', onSelDragEnd);
+}
+
+// Keyboard shortcuts
+function onKeyDownSel(e) {
+  if (!loaded || !vid.duration) return;
+  const inInput = e.target.closest('input, textarea, [contenteditable]');
+  if (inInput) return;
+
+  if (e.key.toLowerCase() === 'i') {
+    e.preventDefault();
+    setSelPoint('in', vid.currentTime);
+    showToast(`In point: ${fmt(selRange.in)}`);
+  } else if (e.key.toLowerCase() === 'o') {
+    e.preventDefault();
+    setSelPoint('out', vid.currentTime);
+    showToast(`Out point: ${fmt(selRange.out)}`);
+  }
+}
+
+// Save the selection
+async function saveSelection() {
+  if (selRange.in === null || selRange.out === null) {
+    showToast('Set both in and out points first', true);
+    return;
+  }
+  if (selRange.in >= selRange.out) {
+    showToast('In point must be before out point', true);
+    return;
+  }
+  await saveSection(selRange.in, selRange.out);
+}
+
+// Wire up the drag handlers
+document.getElementById('selHandleIn').addEventListener('mousedown', e => startSelDrag('in', e));
+document.getElementById('selHandleOut').addEventListener('mousedown', e => startSelDrag('out', e));
+
+// Wire up keyboard shortcuts
+document.addEventListener('keydown', onKeyDownSel);
+
+// Clear selection when video loads
+const origLoadMetadata = vid.onloadedmetadata;
+vid.onloadedmetadata = function(e) {
+  selRange = { in: null, out: null };
+  updateSelRangeUI();
+  if (origLoadMetadata) origLoadMetadata.call(this, e);
+};
 
 // ── Time-expression parser ────────────────────────────────
 const WORD_NUMBERS = {
