@@ -223,6 +223,16 @@ function onVideoReady() {
   renderBookmarks();
   fitVideo();
   detectFps();
+  // Detect unsupported video codec (HEVC from Samsung, etc.)
+  clearTimeout(window._codecCheckTimer);
+  window._codecCheckTimer = setTimeout(() => {
+    if (!vid.paused && vid.currentTime > 0) {
+      const q = vid.getVideoPlaybackQuality ? vid.getVideoPlaybackQuality() : null;
+      if (q && q.totalVideoFrames === 0 && q.droppedVideoFrames === 0) {
+        showToast('Video codec not supported in this browser (HEVC?). Try Safari or re-encode as H.264.', true);
+      }
+    }
+  }, 2500);
 }
 vid.addEventListener('loadedmetadata', () => {
   // Some mobile browsers report videoWidth=0 at loadedmetadata;

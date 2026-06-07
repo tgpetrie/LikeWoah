@@ -2328,11 +2328,13 @@ function loadFile(file) {
     return;
   }
   window._lastFileName = file.name || 'untitled';
+  loaded = false; // reset so onDesktopVideoReady fires for new file
   vid.src = URL.createObjectURL(file);
   vid.load();
 }
 
-vid.addEventListener('loadedmetadata', () => {
+function onDesktopVideoReady() {
+  if (loaded) return; // already handled
   loaded = true;
   dropZone.style.display = 'none';
   vwrap.style.display    = 'block';
@@ -2376,15 +2378,42 @@ vid.addEventListener('loadedmetadata', () => {
   crop = {x:0, y:0, w:100, h:100};
   updateCropBox();
   updateCropInputs();
+  // Detect unsupported video codec (HEVC from Samsung, etc.)
+  // If no frames render after 2s of playback, warn the user
+  clearTimeout(window._codecCheckTimer);
+  window._codecCheckTimer = setTimeout(() => {
+    if (!vid.paused && vid.currentTime > 0) {
+      const q = vid.getVideoPlaybackQuality ? vid.getVideoPlaybackQuality() : null;
+      if (q && q.totalVideoFrames === 0 && q.droppedVideoFrames === 0) {
+        showToast('Video codec may not be supported in this browser (HEVC?). Try Safari or re-encode as H.264.', true);
+      }
+    }
+  }, 2500);
+}
+vid.addEventListener('loadedmetadata', () => {
+  if (vid.videoWidth > 0 && vid.videoHeight > 0) onDesktopVideoReady();
+});
+vid.addEventListener('loadeddata', () => {
+  if (vid.videoWidth > 0 && vid.videoHeight > 0) onDesktopVideoReady();
+});
+vid.addEventListener('canplay', () => {
+  if (!loaded && vid.videoWidth > 0 && vid.videoHeight > 0) onDesktopVideoReady();
 });
 
 function fitVideo() {
   const r  = preview.getBoundingClientRect();
-  const vr = vid.videoWidth / vid.videoHeight;
+  const vw = vid.videoWidth || vid.offsetWidth || r.width;
+  const vh = vid.videoHeight || vid.offsetHeight || r.height;
+  if (!vw || !vh) return; // still no dimensions, bail
+  const vr = vw / vh;
   const ar = r.width / r.height;
   let w, h;
   if (vr > ar) { w = r.width;  h = w / vr; }
   else          { h = r.height; w = h * vr; }
+  // Guard against NaN / Infinity / zero
+  if (!isFinite(w) || !isFinite(h) || w < 1 || h < 1) {
+    w = r.width; h = r.height;
+  }
   vid.style.width    = w + 'px';
   vid.style.height   = h + 'px';
   vwrap.style.width  = w + 'px';
