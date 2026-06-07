@@ -43,11 +43,116 @@ let bookmarks = [];
 let bmIdSeq = 0;
 let lastFileName = 'untitled';
 let audioCtx = null, audioSrc = null;
+let selRange = { in: null, out: null };
+let selDragging = null;
 
 function fmt(s) {
   s = Math.max(0, s|0);
   return (s/60|0) + ':' + String(s%60).padStart(2,'0');
 }
+
+// ── Range selector (mobile touch version) ──
+function updateSelRangeUI() {
+  const inHandle = $('selHandleIn');
+  const outHandle = $('selHandleOut');
+  const selRangeEl = $('selRange');
+
+  if (selRange.in === null || selRange.out === null) {
+    inHandle.style.display = 'none';
+    outHandle.style.display = 'none';
+    selRangeEl.style.display = 'none';
+    return;
+  }
+
+  const dur = vid.duration || 1;
+  const inPct = (selRange.in / dur) * 100;
+  const outPct = (selRange.out / dur) * 100;
+
+  inHandle.style.left = inPct + '%';
+  outHandle.style.left = outPct + '%';
+  selRangeEl.style.left = inPct + '%';
+  selRangeEl.style.right = (100 - outPct) + '%';
+  selRangeEl.style.display = 'block';
+  inHandle.style.display = 'block';
+  outHandle.style.display = 'block';
+}
+
+function setSelPoint(which, time) {
+  time = Math.max(0, Math.min(vid.duration || 0, time));
+  if (which === 'in') {
+    selRange.in = Math.min(time, (selRange.out !== null) ? selRange.out : (vid.duration || 0));
+  } else {
+    selRange.out = Math.max(time, (selRange.in !== null) ? selRange.in : 0);
+  }
+  updateSelRangeUI();
+}
+
+function startSelDragTouch(which, e) {
+  selDragging = which;
+  $('selHandle' + (which === 'in' ? 'In' : 'Out')).classList.add('active');
+  e.preventDefault();
+}
+
+function onSelDragMoveTouch(e) {
+  if (!selDragging) return;
+  const tline = $('tline');
+  const rect = tline.getBoundingClientRect();
+  const touch = e.touches[0];
+  if (!touch) return;
+  const pct = Math.max(0, Math.min(100, ((touch.clientX - rect.left) / rect.width) * 100));
+  const time = (pct / 100) * (vid.duration || 0);
+  setSelPoint(selDragging, time);
+}
+
+function onSelDragEndTouch() {
+  if (selDragging) {
+    $('selHandle' + (selDragging === 'in' ? 'In' : 'Out')).classList.remove('active');
+  }
+  selDragging = null;
+}
+
+async function saveSelection() {
+  if (selRange.in === null || selRange.out === null) {
+    showToast('Set both in and out points first', true);
+    return;
+  }
+  if (selRange.in >= selRange.out) {
+    showToast('In point must be before out point', true);
+    return;
+  }
+  await saveSection(selRange.in, selRange.out);
+}
+
+// Wire up touch handlers
+$('selHandleIn').addEventListener('touchstart', e => startSelDragTouch('in', e));
+$('selHandleOut').addEventListener('touchstart', e => startSelDragTouch('out', e));
+document.addEventListener('touchmove', onSelDragMoveTouch, { passive: false });
+document.addEventListener('touchend', onSelDragEndTouch);
+
+// Keyboard shortcuts (same as desktop)
+document.addEventListener('keydown', e => {
+  if (!loaded || !vid.duration) return;
+  const inInput = e.target.closest('input, textarea, [contenteditable]');
+  if (inInput) return;
+  if (e.key.toLowerCase() === 'i') {
+    e.preventDefault();
+    setSelPoint('in', vid.currentTime);
+    showToast('In: ' + fmt(selRange.in));
+  } else if (e.key.toLowerCase() === 'o') {
+    e.preventDefault();
+    setSelPoint('out', vid.currentTime);
+    showToast('Out: ' + fmt(selRange.out));
+  }
+});
+
+// Clear selection when video loads
+const origVidLoadMeta = vid.onloadedmetadata;
+vid.onloadedmetadata = function(e) {
+  selRange = { in: null, out: null };
+  updateSelRangeUI();
+  if (origVidLoadMeta) origVidLoadMeta.call(this, e);
+};
+
 function showToast(msg, isDanger) {
   toast.textContent = msg;
   toast.classList.toggle('danger', !!isDanger);
@@ -386,7 +491,7 @@ function showMenu() {
     { d:'M12 2v2c4.42 0 8 3.58 8 8s-3.58 8-8 8-8-3.58-8-8c0-1.85.63-3.55 1.69-4.9L12 13V2z',
       ttl:'Analyze motion', sub:'Spike, irregularity, pulse', act:runMotion, disabled: !loaded },
     { d:'M19 13H5v-2h14v2z',
-      ttl:'Save section', sub:'Trim and export a clip', act:promptClipSection, disabled: !loaded },
+      ttl:'Save selection', sub:'Export range with handles', act:saveSelection, disabled: !loaded || selRange.in === null },
     { d:'M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1z',
       ttl:'Export full video (WebM)', sub:'Bakes annotations at full res', act:exportFullWebM, disabled: !loaded },
     { d:'M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zm.01 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z',
