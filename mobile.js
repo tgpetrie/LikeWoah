@@ -198,6 +198,7 @@ openBtn.addEventListener('click', () => fileIn.click());
 openBig.addEventListener('click', () => fileIn.click());
 cameraBtn.addEventListener('click', () => cameraIn.click());
 cameraBtnBig.addEventListener('click', () => cameraIn.click());
+$('deviceBtnBig').addEventListener('click', showDeviceBrowser);
 fileIn.addEventListener('change', e => { loadFile(e.target.files[0]); fileIn.value = ''; });
 cameraIn.addEventListener('change', e => { loadFile(e.target.files[0]); cameraIn.value = ''; });
 
@@ -517,11 +518,205 @@ function makeSvgPath(d) {
   return svg;
 }
 
+// ── ADB Device Browser ──
+const ADB_BRIDGE = 'http://localhost:7420';
+let adbAvailable = null; // null = unknown, true/false after check
+
+async function checkAdbBridge() {
+  try {
+    const r = await fetch(ADB_BRIDGE + '/health', { signal: AbortSignal.timeout(1500) });
+    adbAvailable = r.ok;
+  } catch { adbAvailable = false; }
+  return adbAvailable;
+}
+
+function fmtSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(0) + ' KB';
+  if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB';
+  return (bytes / 1073741824).toFixed(2) + ' GB';
+}
+
+function loadFromBridge(device, filePath) {
+  const url = ADB_BRIDGE + '/pull?device=' + encodeURIComponent(device)
+    + '&path=' + encodeURIComponent(filePath);
+  const name = filePath.split('/').pop();
+  lastFileName = name;
+  loaded = false;
+  selRange = { in: null, out: null };
+  updateSelRangeUI();
+  vid.crossOrigin = 'anonymous';
+  vid.src = url;
+  vid.load();
+  closeSheet();
+  showToast('Loading ' + name + '...');
+}
+
+async function showDeviceBrowser() {
+  const root = document.createElement('div');
+  root.appendChild(makeHeading('Devices', 'dClose'));
+
+  const status = document.createElement('div');
+  status.style.cssText = 'text-align:center;padding:24px 0;color:var(--muted);font-size:13px';
+  status.textContent = 'Connecting to ADB bridge...';
+  root.appendChild(status);
+  openSheet(root);
+  $('dClose').addEventListener('click', closeSheet);
+
+  const ok = await checkAdbBridge();
+  if (!ok) {
+    status.textContent = '';
+    const msg = document.createElement('div');
+    msg.style.cssText = 'text-align:center;padding:16px 0';
+
+    const title = document.createElement('div');
+    title.style.cssText = 'font-size:15px;font-weight:600;color:var(--text);margin-bottom:10px';
+    title.textContent = 'ADB Bridge not running';
+    msg.appendChild(title);
+
+    const hint = document.createElement('div');
+    hint.style.cssText = 'font-size:12px;color:var(--muted);line-height:1.7;font-family:monospace;background:var(--panel2);padding:14px;border-radius:10px;text-align:left';
+    hint.textContent = 'python3 adb-bridge.py';
+    msg.appendChild(hint);
+
+    const note = document.createElement('div');
+    note.style.cssText = 'font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5';
+    note.textContent = 'Run this command in the VideoEdit folder, then tap Retry.';
+    msg.appendChild(note);
+
+    const retry = document.createElement('button');
+    retry.className = 'open-btn-big';
+    retry.style.cssText = 'margin-top:14px;width:100%;padding:12px';
+    retry.textContent = 'Retry';
+    retry.addEventListener('click', () => { closeSheet(); setTimeout(showDeviceBrowser, 200); });
+    msg.appendChild(retry);
+
+    status.parentNode.replaceChild(msg, status);
+    return;
+  }
+
+  // Fetch device list
+  try {
+    const r = await fetch(ADB_BRIDGE + '/devices');
+    const data = await r.json();
+    status.remove();
+
+    if (!data.devices || data.devices.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'bm-empty';
+      empty.textContent = 'No devices connected. Plug in via USB or use adb connect <ip>.';
+      root.appendChild(empty);
+      return;
+    }
+
+    const list = document.createElement('div');
+    list.className = 'menu-list';
+    data.devices.forEach(dev => {
+      const btn = document.createElement('button');
+      btn.className = 'menu-item';
+      const icon = document.createElement('div'); icon.className = 'icon';
+      icon.appendChild(makeSvgPath('M17 1.01 7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z'));
+      const lbl = document.createElement('div'); lbl.className = 'label';
+      const ttl = document.createElement('div'); ttl.className = 'ttl'; ttl.textContent = dev.model;
+      const sub = document.createElement('div'); sub.className = 'sub'; sub.textContent = dev.id;
+      lbl.appendChild(ttl); lbl.appendChild(sub);
+      btn.appendChild(icon); btn.appendChild(lbl);
+      btn.addEventListener('click', () => { closeSheet(); setTimeout(() => browseDevice(dev.id, dev.model, '/'), 200); });
+      list.appendChild(btn);
+    });
+    root.appendChild(list);
+  } catch (e) {
+    status.textContent = 'Error: ' + e.message;
+    status.style.color = 'var(--danger)';
+  }
+}
+
+async function browseDevice(deviceId, deviceName, path) {
+  const root = document.createElement('div');
+  const heading = makeHeading(deviceName, 'bwClose');
+  root.appendChild(heading);
+
+  // Breadcrumb / back nav
+  if (path !== '/') {
+    const backRow = document.createElement('div');
+    backRow.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 0 10px;font-size:12px';
+    const backBtn = document.createElement('button');
+    backBtn.style.cssText = 'background:var(--panel2);border:1px solid var(--border);color:var(--accent);padding:6px 12px;border-radius:8px;font-size:12px';
+    backBtn.textContent = '← Back';
+    const parentPath = path.replace(/\/[^/]+\/?$/, '') || '/';
+    backBtn.addEventListener('click', () => { closeSheet(); setTimeout(() => browseDevice(deviceId, deviceName, parentPath), 200); });
+    backRow.appendChild(backBtn);
+    const pathLabel = document.createElement('span');
+    pathLabel.style.cssText = 'color:var(--muted);font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+    pathLabel.textContent = path;
+    backRow.appendChild(pathLabel);
+    root.appendChild(backRow);
+  }
+
+  const status = document.createElement('div');
+  status.style.cssText = 'text-align:center;padding:20px 0;color:var(--muted);font-size:13px';
+  status.textContent = 'Loading...';
+  root.appendChild(status);
+  openSheet(root);
+  $('bwClose').addEventListener('click', closeSheet);
+
+  try {
+    const r = await fetch(ADB_BRIDGE + '/browse?device=' + encodeURIComponent(deviceId)
+      + '&path=' + encodeURIComponent(path));
+    const data = await r.json();
+    status.remove();
+
+    if (!data.entries || data.entries.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'bm-empty';
+      empty.textContent = 'No video files or folders here.';
+      root.appendChild(empty);
+      return;
+    }
+
+    const list = document.createElement('div');
+    list.className = 'menu-list';
+    data.entries.forEach(entry => {
+      const btn = document.createElement('button');
+      btn.className = 'menu-item';
+      const icon = document.createElement('div'); icon.className = 'icon';
+      if (entry.isDir) {
+        icon.appendChild(makeSvgPath('M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z'));
+      } else {
+        icon.style.color = 'var(--text)';
+        icon.appendChild(makeSvgPath('M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z'));
+      }
+      const lbl = document.createElement('div'); lbl.className = 'label';
+      const ttl = document.createElement('div'); ttl.className = 'ttl'; ttl.textContent = entry.name;
+      const sub = document.createElement('div'); sub.className = 'sub';
+      sub.textContent = entry.isDir ? 'Folder' : fmtSize(entry.size);
+      lbl.appendChild(ttl); lbl.appendChild(sub);
+      btn.appendChild(icon); btn.appendChild(lbl);
+
+      if (entry.isDir) {
+        btn.addEventListener('click', () => { closeSheet(); setTimeout(() => browseDevice(deviceId, deviceName, entry.path), 200); });
+      } else {
+        btn.addEventListener('click', () => loadFromBridge(deviceId, entry.path));
+      }
+      list.appendChild(btn);
+    });
+    root.appendChild(list);
+  } catch (e) {
+    status.textContent = 'Error: ' + e.message;
+    status.style.color = 'var(--danger)';
+  }
+}
+
+// Check for ADB bridge on load (non-blocking)
+checkAdbBridge();
+
 function showMenu() {
   const root = document.createElement('div');
   root.appendChild(makeHeading('Menu', 'mClose'));
   const list = document.createElement('div'); list.className = 'menu-list';
   const items = [
+    { d:'M17 1.01 7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z',
+      ttl:'From device', sub:'Browse connected phone via ADB', act:showDeviceBrowser },
     { d:'M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z',
       ttl:'Bookmarks', sub: bookmarks.length + ' pinned', act:showBookmarks },
     { d:'M12 2v2c4.42 0 8 3.58 8 8s-3.58 8-8 8-8-3.58-8-8c0-1.85.63-3.55 1.69-4.9L12 13V2z',
