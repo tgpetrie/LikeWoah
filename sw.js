@@ -1,5 +1,5 @@
 // VideoEdit service worker — minimal app-shell cache so the app loads offline.
-const CACHE = 'videoedit-v2';
+const CACHE = 'videoedit-v3';
 const SHELL = [
   './',
   'index.html',

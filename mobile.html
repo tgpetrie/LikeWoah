@@ -58,6 +58,8 @@ button { font-family:inherit; cursor:pointer; }
 .drop-zone p { font-size:13px; line-height:1.5; max-width:300px; }
 .open-btn-big { margin-top:18px; background:var(--accent); color:var(--accent-dark);
   border:none; padding:14px 28px; border-radius:24px; font-size:15px; font-weight:600; }
+.cam-btn { background:var(--panel2); color:var(--text); border:1px solid var(--border);
+  margin-top:10px; }
 .vwrap { position:absolute; transform-origin:0 0; display:none; }
 .vwrap.on { display:block; }
 #vid { display:block; max-width:100%; max-height:100%; background:#000; }
@@ -201,6 +203,9 @@ button { font-family:inherit; cursor:pointer; }
     <button class="top-btn" id="openBtn" title="Open file">
       <svg viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z"/></svg>
     </button>
+    <button class="top-btn" id="cameraBtn" title="Record with camera">
+      <svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+    </button>
     <button class="top-btn" id="menuBtn" title="Menu">
       <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
     </button>
@@ -212,8 +217,9 @@ button { font-family:inherit; cursor:pointer; }
         <polygon points="26,24 26,40 40,32" fill="currentColor"/>
       </svg>
       <h2>Open a Video</h2>
-      <p>Tap the button below or the folder icon above. Pinch to zoom, drag to pan, tap to play/pause once loaded.</p>
-      <button class="open-btn-big" id="openBtnBig">Choose video</button>
+      <p>Choose a file from your library or record directly with your camera.</p>
+      <button class="open-btn-big" id="openBtnBig">Choose from library</button>
+      <button class="open-btn-big cam-btn" id="cameraBtnBig">Record with camera</button>
     </div>
     <div class="vwrap" id="vwrap">
       <video id="vid" playsinline preload="metadata"></video>
@@ -278,6 +284,7 @@ button { font-family:inherit; cursor:pointer; }
 </div>
 <div class="toast" id="toast"></div>
 <input type="file" id="fileIn" accept="video/*,.mp4,.mov,.m4v,.webm,.mkv,.avi,.ogg,.ogv,.ts,.mts,.m2ts,.3gp,.flv,.wmv" style="display:none">
+<input type="file" id="cameraIn" accept="video/*" capture="environment" style="display:none">
 <script src="mobile.js"></script>
 </body>
 </html>

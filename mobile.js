@@ -185,12 +185,21 @@ function loadFile(file) {
     return;
   }
   lastFileName = file.name || 'untitled';
+  loaded = false; // reset so onVideoReady can fire for the new file
+  selRange = { in: null, out: null };
+  updateSelRangeUI();
   vid.src = URL.createObjectURL(file);
   vid.load();
 }
+const cameraIn = $('cameraIn');
+const cameraBtnBig = $('cameraBtnBig');
+const cameraBtn = $('cameraBtn');
 openBtn.addEventListener('click', () => fileIn.click());
 openBig.addEventListener('click', () => fileIn.click());
-fileIn.addEventListener('change', e => loadFile(e.target.files[0]));
+cameraBtn.addEventListener('click', () => cameraIn.click());
+cameraBtnBig.addEventListener('click', () => cameraIn.click());
+fileIn.addEventListener('change', e => { loadFile(e.target.files[0]); fileIn.value = ''; });
+cameraIn.addEventListener('change', e => { loadFile(e.target.files[0]); cameraIn.value = ''; });
 
 ['dragenter','dragover'].forEach(ev =>
   preview.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); })
@@ -201,7 +210,8 @@ preview.addEventListener('drop', e => {
   if (f) loadFile(f);
 });
 
-vid.addEventListener('loadedmetadata', () => {
+function onVideoReady() {
+  if (loaded) return; // already handled
   loaded = true;
   dropZone.classList.add('hidden');
   vwrap.classList.add('on');
@@ -212,6 +222,25 @@ vid.addEventListener('loadedmetadata', () => {
   renderBookmarks();
   fitVideo();
   detectFps();
+}
+vid.addEventListener('loadedmetadata', () => {
+  // Some mobile browsers report videoWidth=0 at loadedmetadata;
+  // wait for loadeddata or a short delay as fallback
+  if (vid.videoWidth > 0 && vid.videoHeight > 0) {
+    onVideoReady();
+  }
+});
+vid.addEventListener('loadeddata', () => {
+  // By loadeddata, first frame is decoded — dimensions should be available
+  if (vid.videoWidth > 0 && vid.videoHeight > 0) {
+    onVideoReady();
+  }
+});
+// Ultimate fallback: some codecs/browsers delay dimension reporting
+vid.addEventListener('canplay', () => {
+  if (!loaded && vid.videoWidth > 0 && vid.videoHeight > 0) {
+    onVideoReady();
+  }
 });
 
 function enableControls(on) {
@@ -223,11 +252,18 @@ function enableControls(on) {
 
 function fitVideo() {
   const r = preview.getBoundingClientRect();
-  const vr = vid.videoWidth / vid.videoHeight;
+  const vw = vid.videoWidth || vid.offsetWidth || r.width;
+  const vh = vid.videoHeight || vid.offsetHeight || r.height;
+  if (!vw || !vh) return; // still no dimensions, bail
+  const vr = vw / vh;
   const ar = r.width / r.height;
   let w, h;
   if (vr > ar) { w = r.width; h = w / vr; }
   else { h = r.height; w = h * vr; }
+  // Guard against NaN / Infinity / zero
+  if (!isFinite(w) || !isFinite(h) || w < 1 || h < 1) {
+    w = r.width; h = r.height;
+  }
   vid.style.width = w + 'px';
   vid.style.height = h + 'px';
   vwrap.style.width = w + 'px';
